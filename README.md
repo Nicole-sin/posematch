@@ -23,7 +23,8 @@ Add it to your home screen for a fullscreen, app-like version.
 ## Use
 
 1. Tap **+** to pick the pose you want to copy.
-2. Drag the ghost to position it, pinch to resize, **Flip ghost** to mirror it.
+2. Drag the ghost to position it. Use the **Zoom** slider (or pinch, or scroll) to size it to
+   your framing, and **Flip ghost** to mirror it.
 3. Set the ghost opacity (45% is a good default).
 4. Pick an output shape — **9:16**, **4:5**, **1:1**, or **Full** (the camera's own).
 5. Pick a timer, prop the phone up, get into the pose.
@@ -34,7 +35,8 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
 
 ### Shortcuts (desktop)
 
-`space` shoot · `m` mirror · `g` grid · `[` `]` opacity · `r` reset ghost · `esc` close compare
+`space` shoot · `m` mirror · `g` grid · `[` `]` opacity · `-` `+` zoom · `r` reset ghost ·
+`esc` close compare
 
 ## Design notes
 
@@ -49,6 +51,9 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
   tall stream instead of a wide one that would be mostly cropped away.
 - Output lands on native sizes: 1080×1920 (9:16), 1080×1350 (4:5), 1080×1080 (1:1).
 - Rear camera un-mirrors automatically, since mirroring is a selfie convention.
+- **Ghost zoom is log-mapped** (20%–500%). On a linear track 100% would sit at 17% along the
+  bar; log-mapped it lands dead centre and zooming in and out are mirror images. The slider,
+  pinch and scroll all drive one value and stay in sync.
 
 ## Known limits
 
