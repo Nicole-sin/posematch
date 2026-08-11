@@ -1,27 +1,38 @@
 # Pose Match
 
 Upload a photo of a pose you want to copy. It floats over your live camera as a translucent
-"ghost" so you can line yourself up, then you shoot. Single self-contained HTML file.
+"ghost" so you can line yourself up, then you shoot. Phone-first, single self-contained HTML
+file, no dependencies, no build step. Nothing is ever uploaded — everything stays on device.
 
-## Run
+## Use it on your phone
 
-Camera access requires a **secure context**, so opening the file directly from disk
-(`file://`) will not work — the browser blocks the camera before it even asks. Serve it:
+Camera access requires **https**, so the easiest route is GitHub Pages:
 
-    cd posematch
+1. Push this repo to GitHub.
+2. Settings → Pages → Source: *Deploy from a branch* → `main` / `root`.
+3. Open the `https://<user>.github.io/posematch/` URL on your phone and allow the camera.
+
+Add it to your home screen for a fullscreen, app-like version.
+
+**Locally** (`http://localhost` also counts as secure):
+
     python3 -m http.server 8000
 
-Then open <http://localhost:8000>.
+`file://` will not work — browsers block the camera on it. The app says so if you try.
 
 ## Use
 
-1. Drop, paste, or pick your inspo photo.
-2. Drag the ghost to position it; scroll or pinch to resize; **Reset fit** to start over.
-3. Set opacity to taste (45% is a good default).
-4. Pick a timer — you can't hold a pose and press a button at the same time.
-5. Shoot, then compare against the inspo and download.
+1. Tap **+** to pick the pose you want to copy.
+2. Drag the ghost to position it, pinch to resize, **Flip ghost** to mirror it.
+3. Set the ghost opacity (45% is a good default).
+4. Pick an output shape — **9:16**, **4:5**, **1:1**, or **Full** (the camera's own).
+5. Pick a timer, prop the phone up, get into the pose.
+6. Shoot, compare against the inspo, download.
 
-### Shortcuts
+On desktop the same page becomes a two-column layout with a sidebar; extra controls are behind
+**More** on phones and always visible on desktop.
+
+### Shortcuts (desktop)
 
 `space` shoot · `m` mirror · `g` grid · `[` `]` opacity · `r` reset ghost · `esc` close compare
 
@@ -29,15 +40,18 @@ Then open <http://localhost:8000>.
 
 - **The saved photo is the clean camera frame.** The ghost is guidance only and is never burned
   in — the goal is your own photo in that pose.
+- **The stage box IS the crop.** The video covers a box sized to the chosen aspect, and capture
+  reproduces that exact crop from the source frame, so what you framed is what you get.
+  Verified across 42 source-size/aspect combinations.
 - **Mirroring is WYSIWYG.** If the preview is mirrored, the saved frame is too. Un-mirroring on
   save would flip the pose relative to the ghost you just matched yourself against.
-- **The stage is sized from the true frame aspect**, so nothing is cropped between preview and
-  output and the capture is pixel-for-pixel what was on screen.
-- **Difference blend** is the best alignment aid: areas that match turn black.
+- **Portrait is requested from the camera** when the screen is portrait, so a phone hands back a
+  tall stream instead of a wide one that would be mostly cropped away.
+- Output lands on native sizes: 1080×1920 (9:16), 1080×1350 (4:5), 1080×1080 (1:1).
 - Rear camera un-mirrors automatically, since mirroring is a selfie convention.
 
 ## Known limits
 
-- Needs `localhost` or https. No way around it — that's a browser security rule.
-- Shots live in memory for the session only; download the ones you want to keep.
-- The ghost cannot be rotated, only moved, scaled and flipped.
+- Needs https or localhost. Browser security rule, no way around it.
+- Shots live in memory for the session only — download the ones you want to keep.
+- The ghost can be moved, scaled and flipped, but not rotated.
