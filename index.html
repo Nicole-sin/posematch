@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pose Match</title>
+<style>
+  :root {
+    --bg: #0e0f14;
+    --panel: #171922;
+    --panel-2: #1f222e;
+    --line: #2e3242;
+    --text: #e9ebf2;
+    --muted: #8d93a8;
+    --accent: #ff6b9d;
+    --accent-hi: #ff88b2;
+    --ok: #6fd39a;
+    --danger: #ff6b6b;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    height: 100dvh;
+    display: grid;
+    grid-template-columns: 1fr 312px;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  /* ---------- stage ---------- */
+
+  .stage-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* Sized in JS from the real video dimensions (see layoutStage) so nothing is
+     cropped and the capture is pixel-for-pixel what was on screen. Not done with
+     `aspect-ratio` alone: with an auto width inside a flex row the content width
+     resolves to zero and the whole stage collapses. */
+  .stage {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+    touch-action: none;
+  }
+  .stage.ready { outline: 1px solid var(--line); }
+
+  #video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    background: #000;
+  }
+  #video.mirrored { transform: scaleX(-1); }
+
+  /* The ghost: the uploaded pose, floated over the live feed. */
+  #ghost {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    transform-origin: center center;
+    will-change: transform, opacity;
+  }
+  #ghost.diff { mix-blend-mode: difference; }
+
+  .grid-lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    background:
+      linear-gradient(to right,  transparent 33.2%, rgba(255,255,255,.35) 33.2%, rgba(255,255,255,.35) 33.5%, transparent 33.5%,
+                                 transparent 66.4%, rgba(255,255,255,.35) 66.4%, rgba(255,255,255,.35) 66.7%, transparent 66.7%),
+      linear-gradient(to bottom, transparent 33.2%, rgba(255,255,255,.35) 33.2%, rgba(255,255,255,.35) 33.5%, transparent 33.5%,
+                                 transparent 66.4%, rgba(255,255,255,.35) 66.4%, rgba(255,255,255,.35) 66.7%, transparent 66.7%);
+  }
+  .grid-lines.on { opacity: 1; }
+
+  .countdown {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font: 800 clamp(70px, 22vmin, 190px)/1 inherit;
+    color: #fff;
+    text-shadow: 0 6px 40px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+  }
+  .countdown.on { display: flex; }
+  @keyframes tick { from { transform: scale(1.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .countdown span { animation: tick 0.35s cubic-bezier(0.2, 1.3, 0.4, 1); }
+
+  .flash {
+    position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none;
+  }
+  @keyframes flashfade { from { opacity: 0.85; } to { opacity: 0; } }
+  .flash.fire { animation: flashfade 0.4s ease-out; }
+
+  /* Overlaid state messages (no camera, needs upload, etc.) */
+  .stage-msg {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 28px;
+    text-align: center;
+    background: rgba(14, 15, 20, 0.93);
+    backdrop-filter: blur(3px);
+  }
+  .stage-msg.on { display: flex; }
+  .stage-msg h2 { margin: 0; font-size: 17px; }
+  .stage-msg p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 46ch; }
+  .stage-msg code {
+    display: inline-block;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font: 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text);
+    user-select: all;
+  }
+
+  /* ---------- side panel ---------- */
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  h1 { margin: 0; font-size: 16px; letter-spacing: -0.01em; }
+  .sub { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
+
+  .group { display: flex; flex-direction: column; gap: 8px; }
+  .group > .label {
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 650;
+  }
+
+  /* Drop zone for the inspo photo */
+  .drop {
+    border: 1.5px dashed var(--line);
+    border-radius: 11px;
+    padding: 16px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: rgba(255, 107, 157, 0.07); }
+  .drop strong { display: block; font-size: 13.5px; }
+  .drop span { color: var(--muted); font-size: 12px; }
+
+  .thumb-row { display: flex; gap: 10px; align-items: center; }
+  .thumb {
+    width: 54px; height: 54px; flex: 0 0 auto;
+    object-fit: cover;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: #000;
+  }
+  .thumb-meta { min-width: 0; flex: 1 1 auto; font-size: 12px; color: var(--muted); }
+  .thumb-meta b { display: block; color: var(--text); font-size: 13px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1 1 0; min-width: 0; }
+
+  .btn {
+    padding: 9px 10px;
+    font: 600 13px/1 inherit;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .btn:hover:not(:disabled) { background: #2a2e3d; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.on { border-color: var(--accent); color: var(--accent-hi); background: rgba(255,107,157,.1); }
+
+  .shoot {
+    padding: 15px;
+    font: 800 15px/1 inherit;
+    letter-spacing: 0.03em;
+    color: #33101f;
+    background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 8px 22px rgba(255, 107, 157, 0.28);
+  }
+  .shoot:hover:not(:disabled) { filter: brightness(1.07); }
+  .shoot:active:not(:disabled) { transform: translateY(2px); }
+  .shoot:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+  .val { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .between { display: flex; justify-content: space-between; align-items: baseline; }
+
+  .shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .shots img {
+    width: 100%; aspect-ratio: 1; object-fit: cover;
+    border-radius: 8px; border: 1px solid var(--line); cursor: pointer; background: #000;
+  }
+  .shots img:hover { border-color: var(--accent); }
+
+  .hint { color: var(--muted); font-size: 11.5px; margin: 0; }
+  kbd {
+    background: var(--panel-2); border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 5px; padding: 1px 5px; font: 11px/1.5 ui-monospace, Menlo, monospace;
+  }
+
+  /* ---------- compare overlay ---------- */
+
+  .compare {
+    position: fixed; inset: 0; z-index: 20;
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px;
+    background: rgba(8, 9, 13, 0.96);
+    backdrop-filter: blur(6px);
+  }
+  .compare.on { display: flex; }
+  .compare-head { display: flex; align-items: center; gap: 12px; }
+  .compare-head h2 { margin: 0; font-size: 16px; flex: 1 1 auto; }
+
+  .compare-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: stretch;
+  }
+  /* flex:1 1 0 + min-width:0 — these panes contain only max-width-constrained
+     images, so with a content-based basis they would collapse to nothing. */
+  .pane { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+  .pane .cap { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 650; text-align: center; }
+  .pane .holder { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
+  .pane img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; display: block; margin: auto; }
+
+  /* Superimpose mode: stack both images in one box */
+  /* Same trap, worse: the children are absolutely positioned, so this has no
+     intrinsic size at all and needs an explicit basis. */
+  .stack { position: relative; flex: 1 1 100%; min-width: 0; display: none; }
+  .stack.on { display: block; }
+  .stack img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .stack img.top { opacity: 0.5; }
+  .compare.stacked .side { display: none; }
+  .compare.stacked .stack { display: block; }
+
+  @media (max-width: 900px) {
+    body { overflow: auto; }
+    .app { grid-template-columns: 1fr; height: auto; min-height: 100dvh; }
+    .stage-wrap { min-height: 52dvh; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="stage-wrap">
+    <div class="stage" id="stage">
+      <video id="video" playsinline autoplay muted></video>
+      <img id="ghost" alt="">
+      <div class="grid-lines" id="grid"></div>
+      <div class="countdown" id="countdown"></div>
+      <div class="flash" id="flash"></div>
+      <div class="stage-msg on" id="msg">
+        <h2 id="msg-title">Starting camera…</h2>
+        <p id="msg-body"></p>
+        <div id="msg-extra"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div>
+      <h1>Pose Match</h1>
+      <p class="sub">Upload a pose, match it live, shoot.</p>
+    </div>
+
+    <div class="group">
+      <span class="label">Inspo photo</span>
+      <div class="drop" id="drop">
+        <strong>Drop, paste, or click</strong>
+        <span>the pose you want to copy</span>
+      </div>
+      <div class="thumb-row" id="thumb-row" hidden>
+        <img class="thumb" id="thumb" alt="Inspo photo">
+        <div class="thumb-meta"><b id="thumb-name">photo</b><span id="thumb-size"></span></div>
+        <button class="btn" id="clear-ghost" style="flex:0 0 auto">Clear</button>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+    </div>
+
+    <div class="group">
+      <div class="between">
+        <span class="label">Ghost opacity</span>
+        <span class="val" id="op-val">45%</span>
+      </div>
+      <input type="range" id="opacity" min="0" max="100" value="45">
+      <div class="row">
+        <button class="btn" id="diff" title="Matching areas turn black">Difference</button>
+        <button class="btn" id="reset-ghost">Reset fit</button>
+      </div>
+      <p class="hint">Drag the ghost to move it. Scroll or pinch to resize.</p>
+    </div>
+
+    <div class="group">
+      <span class="label">Camera</span>
+      <div class="row">
+        <button class="btn on" id="mirror">Mirror</button>
+        <button class="btn" id="gridbtn">Grid</button>
+        <button class="btn" id="flip" hidden>Flip cam</button>
+      </div>
+      <div class="row">
+        <button class="btn on" id="t0">Now</button>
+        <button class="btn" id="t3">3s</button>
+        <button class="btn" id="t10">10s</button>
+      </div>
+    </div>
+
+    <button class="shoot" id="shoot" disabled>TAKE PHOTO</button>
+
+    <div class="group" id="shots-group" hidden>
+      <div class="between">
+        <span class="label">This session</span>
+        <button class="btn" id="clear-shots" style="flex:0 0 auto;padding:4px 9px;font-size:11.5px">Clear</button>
+      </div>
+      <div class="shots" id="shots"></div>
+    </div>
+
+    <p class="hint">
+      <kbd>space</kbd> shoot &nbsp; <kbd>m</kbd> mirror &nbsp; <kbd>g</kbd> grid &nbsp;
+      <kbd>[</kbd><kbd>]</kbd> opacity &nbsp; <kbd>r</kbd> reset
+    </p>
+  </div>
+</div>
+
+<div class="compare" id="compare">
+  <div class="compare-head">
+    <h2>How close did you get?</h2>
+    <button class="btn" id="stack-btn">Superimpose</button>
+    <button class="btn" id="download">Download</button>
+    <button class="btn" id="retake">Back to camera</button>
+  </div>
+  <div class="compare-body">
+    <div class="pane side"><span class="cap">Inspo</span><div class="holder"><img id="cmp-inspo" alt="Inspo"></div></div>
+    <div class="pane side"><span class="cap">Yours</span><div class="holder"><img id="cmp-shot" alt="Your photo"></div></div>
+    <div class="stack" id="stack">
+      <img id="stk-shot" alt="Your photo">
+      <img id="stk-inspo" class="top" alt="Inspo">
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  const stage = $('stage'), video = $('video'), ghost = $('ghost');
+  const msg = $('msg'), msgTitle = $('msg-title'), msgBody = $('msg-body'), msgExtra = $('msg-extra');
+  const shootBtn = $('shoot'), compare = $('compare');
+
+  // ---------- state ----------
+
+  let stream = null;
+  let facing = 'user';
+  let haveMultipleCams = false;
+  let ghostURL = null;          // object URL for the uploaded pose
+  let shotURL = null;           // object URL for the most recent capture
+  let shots = [];               // { url, blob } for this session
+  let counting = false;
+  let delay = 0;                // countdown seconds
+  let videoAspect = 4 / 3;      // replaced once the real frame size is known
+
+  // Ghost pan/zoom. Kept separate from the capture path entirely — the overlay
+  // is a guide and is never burned into the saved photo.
+  const gt = { x: 0, y: 0, scale: 1, flip: false };
+
+  // Fit the stage inside its container at the true frame aspect, letterboxing on
+  // whichever axis runs out first.
+  function layoutStage() {
+    const wrap = stage.parentElement;
+    const aw = wrap.clientWidth, ah = wrap.clientHeight;
+    if (!aw || !ah) return;
+    let w = aw, h = w / videoAspect;
+    if (h > ah) { h = ah; w = h * videoAspect; }
+    stage.style.width = Math.round(w) + 'px';
+    stage.style.height = Math.round(h) + 'px';
+  }
+
+  // ---------- stage messages ----------
+
+  function showMsg(title, body, extraHTML) {
+    msgTitle.textContent = title;
+    msgBody.textContent = body || '';
+    msgExtra.innerHTML = extraHTML || '';
+    msg.classList.add('on');
+  }
+  const hideMsg = () => msg.classList.remove('on');
+
+  // ---------- camera ----------
+
+  async function startCamera() {
+    // getUserMedia needs a secure context. Opening this file directly from disk
+    // gives a null origin, so the camera is blocked before we even ask.
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      showMsg(
+        'Camera needs a local server',
+        'Browsers only allow camera access over https or localhost — opening this file directly ' +
+        'from disk (file://) will not work. Run this in the folder, then reload from the address it prints:',
+        '<code>python3 -m http.server 8000</code>'
+      );
+      return;
+    }
+
+    stopCamera();
+    showMsg('Starting camera…', 'Allow camera access when your browser asks.');
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      });
+    } catch (err) {
+      const name = err && err.name;
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        showMsg('Camera permission denied',
+          'Allow camera access for this page in your browser settings, then reload.');
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        showMsg('No camera found', 'No camera matched. Plug one in or try flipping the camera.');
+      } else if (name === 'NotReadableError') {
+        showMsg('Camera is busy', 'Another app is using the camera. Close it and reload.');
+      } else {
+        showMsg('Could not start the camera', (err && err.message) || String(err));
+      }
+      return;
+    }
+
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+
+    // Match the stage to the real frame shape so the capture is exactly what
+    // is on screen — no hidden cropping between preview and output.
+    if (video.videoWidth) videoAspect = video.videoWidth / video.videoHeight;
+    layoutStage();
+    stage.classList.add('ready');
+    hideMsg();
+    shootBtn.disabled = false;
+
+    // Labels are only populated after permission is granted, so check now.
+    try {
+      const cams = (await navigator.mediaDevices.enumerateDevices())
+        .filter(d => d.kind === 'videoinput');
+      haveMultipleCams = cams.length > 1;
+      $('flip').hidden = !haveMultipleCams;
+    } catch (_) { /* non-fatal */ }
+  }
+
+  function stopCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+
+  // ---------- inspo photo ----------
+
+  function loadGhost(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (ghostURL) URL.revokeObjectURL(ghostURL);
+    ghostURL = URL.createObjectURL(file);
+
+    ghost.src = ghostURL;
+    $('thumb').src = ghostURL;
+    $('thumb-name').textContent = file.name || 'pasted image';
+    $('thumb-size').textContent = (file.size / 1024 / 1024).toFixed(1) + ' MB';
+    $('thumb-row').hidden = false;
+    $('drop').hidden = true;
+
+    resetGhost();
+    applyOpacity();
+  }
+
+  function clearGhost() {
+    if (ghostURL) URL.revokeObjectURL(ghostURL);
+    ghostURL = null;
+    ghost.removeAttribute('src');
+    ghost.style.opacity = 0;
+    $('thumb-row').hidden = true;
+    $('drop').hidden = false;
+    $('file').value = '';
+  }
+
+  function applyGhostTransform() {
+    ghost.style.transform =
+      `translate(${gt.x}px, ${gt.y}px) scale(${gt.scale}) scaleX(${gt.flip ? -1 : 1})`;
+  }
+  function resetGhost() {
+    gt.x = 0; gt.y = 0; gt.scale = 1; gt.flip = false;
+    applyGhostTransform();
+  }
+  function applyOpacity() {
+    ghost.style.opacity = ghostURL ? ($('opacity').value / 100) : 0;
+  }
+
+  // ---------- capture ----------
+
+  function capture() {
+    if (!stream || counting) return;
+    if (delay > 0) return runCountdown(delay);
+    grab();
+  }
+
+  function runCountdown(secs) {
+    counting = true;
+    shootBtn.disabled = true;
+    const el = $('countdown');
+    el.classList.add('on');
+    let left = secs;
+
+    const paint = () => { el.innerHTML = '<span>' + left + '</span>'; };
+    paint();
+
+    const tick = setInterval(() => {
+      left -= 1;
+      if (left > 0) { paint(); return; }
+      clearInterval(tick);
+      el.classList.remove('on');
+      el.textContent = '';
+      counting = false;
+      shootBtn.disabled = false;
+      grab();
+    }, 1000);
+  }
+
+  function grab() {
+    const w = video.videoWidth, h = video.videoHeight;
+    if (!w || !h) return;
+
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+
+    // Mirror the output to match the preview. Saving un-mirrored would flip the
+    // pose relative to the ghost the user just lined themselves up against.
+    if (video.classList.contains('mirrored')) { ctx.translate(w, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(video, 0, 0, w, h);
+
+    const flash = $('flash');
+    flash.classList.remove('fire');
+    void flash.offsetWidth;          // restart the animation
+    flash.classList.add('fire');
+
+    c.toBlob(blob => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      shots.push({ url, blob });
+      shotURL = url;
+      renderShots();
+      openCompare(url);
+    }, 'image/jpeg', 0.92);
+  }
+
+  function renderShots() {
+    const box = $('shots');
+    box.textContent = '';
+    shots.forEach((s, i) => {
+      const im = document.createElement('img');
+      im.src = s.url;
+      im.alt = 'Shot ' + (i + 1);
+      im.title = 'Shot ' + (i + 1);
+      im.addEventListener('click', () => { shotURL = s.url; openCompare(s.url); });
+      box.appendChild(im);
+    });
+    $('shots-group').hidden = shots.length === 0;
+  }
+
+  // ---------- compare ----------
+
+  function openCompare(url) {
+    $('cmp-shot').src = url;
+    $('stk-shot').src = url;
+    const has = !!ghostURL;
+    for (const el of [$('cmp-inspo'), $('stk-inspo')]) {
+      // src="" resolves to the page URL and fires a bogus request — unset it.
+      if (has) el.src = ghostURL; else el.removeAttribute('src');
+    }
+    // With no inspo loaded there is nothing to compare against — show the shot alone.
+    compare.querySelectorAll('.side')[0].style.display = has ? '' : 'none';
+    $('stack-btn').disabled = !has;
+    compare.classList.add('on');
+  }
+  function closeCompare() {
+    compare.classList.remove('on', 'stacked');
+    $('stack-btn').classList.remove('on');
+  }
+
+  // ---------- ghost drag / zoom ----------
+
+  let dragging = false, lastX = 0, lastY = 0, pointers = new Map(), pinchStart = 0, scaleStart = 1;
+
+  stage.addEventListener('pointerdown', e => {
+    if (!ghostURL) return;
+    pointers.set(e.pointerId, e);
+    stage.setPointerCapture(e.pointerId);
+    if (pointers.size === 1) { dragging = true; lastX = e.clientX; lastY = e.clientY; }
+    else if (pointers.size === 2) {
+      dragging = false;
+      pinchStart = pinchDist();
+      scaleStart = gt.scale;
+    }
+  });
+
+  stage.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, e);
+
+    if (pointers.size === 2 && pinchStart) {
+      const d = pinchDist();
+      if (d) gt.scale = clamp(scaleStart * (d / pinchStart), 0.2, 5);
+      applyGhostTransform();
+      return;
+    }
+    if (!dragging) return;
+    gt.x += e.clientX - lastX;
+    gt.y += e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    applyGhostTransform();
+  });
+
+  const endPointer = e => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchStart = 0;
+    if (pointers.size === 0) dragging = false;
+  };
+  stage.addEventListener('pointerup', endPointer);
+  stage.addEventListener('pointercancel', endPointer);
+
+  function pinchDist() {
+    const [a, b] = [...pointers.values()];
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  }
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  stage.addEventListener('wheel', e => {
+    if (!ghostURL) return;
+    e.preventDefault();
+    gt.scale = clamp(gt.scale * (e.deltaY < 0 ? 1.06 : 0.94), 0.2, 5);
+    applyGhostTransform();
+  }, { passive: false });
+
+  // ---------- wiring ----------
+
+  const drop = $('drop'), fileInput = $('file');
+  drop.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => loadGhost(fileInput.files[0]));
+  $('clear-ghost').addEventListener('click', clearGhost);
+
+  ['dragenter', 'dragover'].forEach(ev =>
+    document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev =>
+    document.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  document.addEventListener('drop', e => {
+    const f = e.dataTransfer?.files?.[0];
+    if (f) loadGhost(f);
+  });
+  document.addEventListener('paste', e => {
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (item) loadGhost(item.getAsFile());
+  });
+
+  $('opacity').addEventListener('input', () => {
+    $('op-val').textContent = $('opacity').value + '%';
+    applyOpacity();
+  });
+
+  const toggle = (btn, fn) => btn.addEventListener('click', () => { fn(); btn.classList.toggle('on'); });
+  toggle($('diff'),    () => ghost.classList.toggle('diff'));
+  toggle($('mirror'),  () => video.classList.toggle('mirrored'));
+  toggle($('gridbtn'), () => $('grid').classList.toggle('on'));
+  video.classList.add('mirrored');          // selfie default, matches the button state
+
+  $('reset-ghost').addEventListener('click', resetGhost);
+  $('flip').addEventListener('click', () => {
+    facing = facing === 'user' ? 'environment' : 'user';
+    // Mirroring is a selfie convention; a rear camera should read straight.
+    const wantMirror = facing === 'user';
+    video.classList.toggle('mirrored', wantMirror);
+    $('mirror').classList.toggle('on', wantMirror);
+    startCamera();
+  });
+
+  const timers = { t0: 0, t3: 3, t10: 10 };
+  Object.keys(timers).forEach(id => $(id).addEventListener('click', () => {
+    delay = timers[id];
+    Object.keys(timers).forEach(o => $(o).classList.toggle('on', o === id));
+  }));
+
+  shootBtn.addEventListener('click', capture);
+  $('retake').addEventListener('click', closeCompare);
+  $('stack-btn').addEventListener('click', () => {
+    compare.classList.toggle('stacked');
+    $('stack-btn').classList.toggle('on');
+  });
+  $('download').addEventListener('click', () => {
+    if (!shotURL) return;
+    const a = document.createElement('a');
+    a.href = shotURL;
+    a.download = 'pose-match-' + (shots.findIndex(s => s.url === shotURL) + 1) + '.jpg';
+    a.click();
+  });
+  $('clear-shots').addEventListener('click', () => {
+    shots.forEach(s => URL.revokeObjectURL(s.url));
+    shots = []; shotURL = null;
+    renderShots();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input, textarea')) return;
+    const k = e.key.toLowerCase();
+    if (k === ' ' || e.code === 'Space') { e.preventDefault(); compare.classList.contains('on') ? closeCompare() : capture(); }
+    else if (k === 'escape' && compare.classList.contains('on')) closeCompare();
+    else if (k === 'm') $('mirror').click();
+    else if (k === 'g') $('gridbtn').click();
+    else if (k === 'r') resetGhost();
+    else if (k === '[' || k === ']') {
+      const s = $('opacity');
+      s.value = clamp(+s.value + (k === ']' ? 5 : -5), 0, 100);
+      s.dispatchEvent(new Event('input'));
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    stopCamera();
+    if (ghostURL) URL.revokeObjectURL(ghostURL);
+    shots.forEach(s => URL.revokeObjectURL(s.url));
+  });
+
+  layoutStage();
+  window.addEventListener('resize', layoutStage);
+  // videoWidth is 0 until metadata arrives, which can land after play() resolves.
+  video.addEventListener('loadedmetadata', () => {
+    if (video.videoWidth) videoAspect = video.videoWidth / video.videoHeight;
+    layoutStage();
+  });
+
+  startCamera();
+})();
+</script>
+</body>
+</html>
