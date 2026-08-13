@@ -3,62 +3,57 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<meta name="theme-color" content="#0e0f14">
+<meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Pose Match</title>
 <style>
   :root {
-    --bg: #0e0f14;
-    --panel: #171922;
-    --panel-2: #1f222e;
-    --line: #2e3242;
-    --text: #e9ebf2;
-    --muted: #8d93a8;
+    --bg: #000;
+    --panel: #14161c;
+    --panel-2: #1d2029;
+    --line: #2b2f3a;
+    --text: #f2f4f8;
+    --muted: #8b93a5;
     --accent: #ff6b9d;
-    --accent-hi: #ff88b2;
-    --pad-b: max(10px, env(safe-area-inset-bottom));
-    --pad-t: max(8px, env(safe-area-inset-top));
+    --shutter: 74px;
+    --bar-h: 132px;             /* bottom control band, iOS-ish proportion */
   }
 
   * { box-sizing: border-box; }
-  html, body { height: 100%; }
+  html { scroll-behavior: smooth; }
 
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
     font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    overflow: hidden;
-    overscroll-behavior: none;          /* no pull-to-refresh while dragging the ghost */
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
   }
 
-  /* ================= PHONE FIRST ================= */
+  /* ================= CAMERA (first screen) ================= */
 
-  .app { position: fixed; inset: 0; display: flex; flex-direction: column; }
-
-  .stage-wrap {
-    flex: 1 1 auto;
-    min-height: 0;
+  .camera {
     position: relative;
+    min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--pad-t) 8px 6px;
+    background: #000;
+    overflow: hidden;
   }
 
-  /* Sized in JS (layoutStage) to the chosen output aspect. The video inside is
-     object-fit:cover, so the stage box IS the crop — and grab() reproduces that
-     same crop, which is what keeps preview and saved photo identical. */
+  /* Full-bleed, exactly like the iOS viewfinder: the preview spans the whole
+     screen width so a body is rendered at the same scale the system camera
+     shows it. Sized in JS (layoutStage). */
   .stage {
     position: relative;
     background: #000;
-    border-radius: 16px;
-    overflow: hidden;
     touch-action: none;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
   }
 
   #video {
@@ -85,54 +80,105 @@
     position: absolute; inset: 0; pointer-events: none; opacity: 0;
     transition: opacity .15s ease;
     background:
-      linear-gradient(to right,  transparent 33.2%, rgba(255,255,255,.32) 33.2% 33.5%, transparent 33.5%,
-                                 transparent 66.4%, rgba(255,255,255,.32) 66.4% 66.7%, transparent 66.7%),
-      linear-gradient(to bottom, transparent 33.2%, rgba(255,255,255,.32) 33.2% 33.5%, transparent 33.5%,
-                                 transparent 66.4%, rgba(255,255,255,.32) 66.4% 66.7%, transparent 66.7%);
+      linear-gradient(to right,  transparent 33.2%, rgba(255,255,255,.3) 33.2% 33.5%, transparent 33.5%,
+                                 transparent 66.4%, rgba(255,255,255,.3) 66.4% 66.7%, transparent 66.7%),
+      linear-gradient(to bottom, transparent 33.2%, rgba(255,255,255,.3) 33.2% 33.5%, transparent 33.5%,
+                                 transparent 66.4%, rgba(255,255,255,.3) 66.4% 66.7%, transparent 66.7%);
   }
   .grid-lines.on { opacity: 1; }
 
   .countdown {
     position: absolute; inset: 0; display: none;
     align-items: center; justify-content: center;
-    font: 800 clamp(80px, 26vmin, 200px)/1 inherit;
+    font: 800 clamp(80px, 28vmin, 220px)/1 inherit;
     color: #fff; text-shadow: 0 6px 40px rgba(0,0,0,.6); pointer-events: none;
   }
   .countdown.on { display: flex; }
   @keyframes tick { from { transform: scale(1.5); opacity: 0 } to { transform: scale(1); opacity: 1 } }
   .countdown span { animation: tick .35s cubic-bezier(.2,1.3,.4,1); }
 
+  /* Doubles as the front-facing "flash": the screen goes white before capture. */
   .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
-  @keyframes flashfade { from { opacity: .85 } to { opacity: 0 } }
+  @keyframes flashfade { from { opacity: .9 } to { opacity: 0 } }
   .flash.fire { animation: flashfade .4s ease-out; }
 
-  /* Floating controls over the stage */
-  .stage-top {
-    position: absolute; top: 10px; left: 10px; right: 10px;
-    display: flex; gap: 8px; justify-content: flex-end;
-    pointer-events: none;
+  /* ---------- overlay controls ---------- */
+
+  .cam-top {
+    position: absolute;
+    top: max(10px, env(safe-area-inset-top));
+    left: 10px; right: 10px;
+    display: flex; gap: 8px; justify-content: center;
+    z-index: 4;
   }
-  .stage-top .chip { pointer-events: auto; }
 
   .chip {
     display: inline-flex; align-items: center; justify-content: center;
-    min-height: 38px; padding: 0 13px;
+    min-height: 36px; padding: 0 14px;
     font: 650 12.5px/1 inherit;
     color: var(--text);
-    background: rgba(20, 22, 30, 0.72);
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(0, 0, 0, .5);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,.16);
     border-radius: 999px;
     cursor: pointer; white-space: nowrap;
   }
   .chip.on { background: var(--accent); border-color: var(--accent); color: #33101f; }
-  .chip:disabled { opacity: .4; }
+
+  /* iOS puts the shutter in a band at the bottom; this sits in the same place. */
+  .cam-bar {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 0;
+    height: calc(var(--bar-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 26px; padding-right: 26px;
+    background: linear-gradient(to top, rgba(0,0,0,.82) 55%, rgba(0,0,0,0));
+    z-index: 4;
+  }
+
+  .shutter {
+    width: var(--shutter); height: var(--shutter);
+    border-radius: 50%;
+    border: 4px solid #fff;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(0,0,0,.35);
+    cursor: pointer; padding: 0; flex: 0 0 auto;
+  }
+  .shutter:active:not(:disabled) { transform: scale(.93); }
+  .shutter:disabled { opacity: .4; }
+
+  .addbtn, .switch {
+    width: 50px; height: 50px; flex: 0 0 auto;
+    border-radius: 13px;
+    border: 1.5px dashed rgba(255,255,255,.4);
+    background: rgba(255,255,255,.1);
+    color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 0;
+  }
+  .switch { border-radius: 50%; border-style: solid; font-size: 19px; }
+  .addbtn.has { border-style: solid; overflow: hidden; padding: 0; }
+  .addbtn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .scroll-hint {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: calc(env(safe-area-inset-bottom) + 6px);
+    text-align: center;
+    color: rgba(255,255,255,.75);
+    font: 650 10px/1 inherit;
+    letter-spacing: .16em; text-transform: uppercase;
+    text-decoration: none;
+    z-index: 5;
+  }
 
   .stage-msg {
-    position: absolute; inset: 0; display: none;
+    position: absolute; inset: 0; display: none; z-index: 6;
     flex-direction: column; align-items: center; justify-content: center;
     gap: 12px; padding: 24px; text-align: center;
-    background: rgba(14,15,20,.94);
+    background: rgba(0,0,0,.9);
   }
   .stage-msg.on { display: flex; }
   .stage-msg h2 { margin: 0; font-size: 16px; }
@@ -143,80 +189,48 @@
     font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
-  /* ---------- bottom control deck ---------- */
+  /* ================= SETTINGS (scroll down) ================= */
 
-  .deck {
-    flex: 0 0 auto;
-    padding: 8px 12px var(--pad-b);
-    display: flex; flex-direction: column; gap: 9px;
+  .settings {
     background: var(--bg);
+    padding: 22px 18px calc(48px + env(safe-area-inset-bottom));
+    max-width: 620px;
+    margin: 0 auto;
+    display: flex; flex-direction: column; gap: 18px;
+    scroll-margin-top: 0;
   }
-
-  .brand { display: none; }
-
-  .chips-row { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; }
-
-  .op-row { display: flex; align-items: center; gap: 10px; }
-  .op-row .lbl { font-size: 11px; color: var(--muted); font-weight: 650; letter-spacing: .1em; }
-  input[type="range"] { flex: 1 1 auto; width: 100%; accent-color: var(--accent); height: 26px; }
-
-  .shoot-row { display: flex; align-items: center; gap: 12px; }
-  .shoot-row .side { flex: 1 1 0; display: flex; }
-  .shoot-row .side.right { justify-content: flex-end; }
-
-  /* Big round shutter, thumb-reachable */
-  .shutter {
-    flex: 0 0 auto;
-    width: 74px; height: 74px; border-radius: 50%;
-    border: 4px solid rgba(255,255,255,.85);
-    background: var(--accent);
-    cursor: pointer; padding: 0;
-    box-shadow: 0 6px 22px rgba(255,107,157,.35);
+  .group { display: flex; flex-direction: column; gap: 9px; }
+  .label {
+    font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
   }
-  .shutter:active:not(:disabled) { transform: scale(.94); }
-  .shutter:disabled { opacity: .35; box-shadow: none; }
+  .chips-row { display: flex; gap: 7px; flex-wrap: wrap; }
+  .chips-row .chip { background: var(--panel); border-color: var(--line); }
+  .chips-row .chip.on { background: var(--accent); border-color: var(--accent); color: #33101f; }
 
-  .addbtn {
-    width: 54px; height: 54px; border-radius: 13px;
-    border: 1.5px dashed var(--line); background: var(--panel);
-    color: var(--muted); font-size: 24px; line-height: 1; cursor: pointer; padding: 0;
-  }
-  .addbtn.has { border-style: solid; overflow: hidden; }
-  .addbtn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .slider-row { display: flex; align-items: center; gap: 12px; }
+  .slider-row .val { color: var(--muted); font-size: 12px; min-width: 42px; text-align: right;
+                     font-variant-numeric: tabular-nums; }
+  input[type="range"] { flex: 1 1 auto; width: 100%; accent-color: var(--accent); height: 28px; }
 
-  .morebtn {
-    width: 54px; height: 54px; border-radius: 13px;
-    border: 1px solid var(--line); background: var(--panel);
-    color: var(--text); font: 650 11px/1.2 inherit; cursor: pointer; padding: 0;
-  }
-
-  /* Collapsible extras */
-  .extra { display: none; flex-direction: column; gap: 9px; }
-  .extra.on { display: flex; }
-  .extra .label {
-    font-size: 10px; letter-spacing: .13em; text-transform: uppercase;
-    color: var(--muted); font-weight: 650;
-  }
-  .shots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .shots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
   .shots img {
-    width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px;
+    width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 9px;
     border: 1px solid var(--line); background: #000; cursor: pointer;
   }
-  .hint { color: var(--muted); font-size: 11px; margin: 0; }
-  .kbd-hint { display: none; }
+  .hint { color: var(--muted); font-size: 11.5px; margin: 0; }
 
-  /* ---------- compare ---------- */
+  /* ================= COMPARE ================= */
 
   .compare {
     position: fixed; inset: 0; z-index: 30; display: none;
     flex-direction: column; gap: 10px;
-    padding: var(--pad-t) 12px var(--pad-b);
-    background: rgba(8,9,13,.97);
+    padding: max(12px, env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+    background: rgba(0,0,0,.97);
   }
   .compare.on { display: flex; }
   .compare-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .compare-head h2 { margin: 0; font-size: 15px; flex: 1 1 100%; }
-
   .compare-body {
     flex: 1 1 auto; min-height: 0;
     display: flex; gap: 8px; justify-content: center; align-items: stretch;
@@ -227,7 +241,6 @@
   .pane .cap { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 650; text-align: center; }
   .pane .holder { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
   .pane img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; margin: auto; display: block; }
-  /* Same trap, worse: absolutely positioned children give this no intrinsic size. */
   .stack { position: relative; flex: 1 1 100%; min-width: 0; display: none; }
   .stack img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .stack img.top { opacity: .5; }
@@ -235,130 +248,103 @@
   .compare.stacked .stack { display: block; }
 
   .btn {
-    padding: 10px 13px; font: 650 13px/1 inherit; color: var(--text);
+    padding: 10px 14px; font: 650 13px/1 inherit; color: var(--text);
     background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
-    cursor: pointer; white-space: nowrap; min-height: 40px;
+    cursor: pointer; white-space: nowrap; min-height: 42px;
   }
-  .btn:hover:not(:disabled) { background: #2a2e3d; }
   .btn:disabled { opacity: .4; cursor: not-allowed; }
-  .btn.on { border-color: var(--accent); color: var(--accent-hi); background: rgba(255,107,157,.1); }
+  .btn.on { border-color: var(--accent); color: var(--accent); }
 
-  /* ================= DESKTOP ================= */
+  [hidden] { display: none !important; }
 
-  @media (min-width: 901px) {
-    .app { flex-direction: row; gap: 14px; padding: 14px; }
-    .stage-wrap { padding: 0; }
-    .deck {
-      flex: 0 0 320px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 14px;
-      overflow-y: auto;
-      gap: 13px;
-    }
-    .brand { display: block; }
-    .brand h1 { margin: 0; font-size: 16px; }
-    .brand p { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
-    .extra { display: flex; }          /* nothing is collapsed on desktop */
-    .morebtn { display: none; }
-    .shots { grid-template-columns: repeat(3, 1fr); }
-    .kbd-hint { display: block; }
-    kbd {
-      background: var(--panel-2); border: 1px solid var(--line); border-bottom-width: 2px;
-      border-radius: 5px; padding: 1px 5px; font: 11px/1.5 ui-monospace, Menlo, monospace;
-    }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .countdown span { animation: none; }
   }
 </style>
 </head>
 <body>
 
 <div class="app">
-  <div class="stage-wrap">
+  <section class="camera" id="camera">
     <div class="stage" id="stage">
       <video id="video" playsinline autoplay muted></video>
       <img id="ghost" alt="">
       <div class="grid-lines" id="grid"></div>
       <div class="countdown" id="countdown"></div>
       <div class="flash" id="flash"></div>
-
-      <div class="stage-top">
-        <button class="chip" id="gridbtn">Grid</button>
-        <button class="chip" id="diff">Diff</button>
-        <button class="chip" id="flip" hidden>Flip</button>
-      </div>
-
-      <div class="stage-msg on" id="msg">
-        <h2 id="msg-title">Starting camera…</h2>
-        <p id="msg-body"></p>
-        <div id="msg-extra"></div>
-        <button class="btn" id="retry" hidden>Try again</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="deck">
-    <div class="brand">
-      <h1>Pose Match</h1>
-      <p>Upload a pose, match it live, shoot.</p>
     </div>
 
-    <!-- Output shape. Vertical by default on a phone. -->
-    <div class="chips-row" id="aspect-row">
-      <button class="chip on" data-ar="0.5625">9:16</button>
-      <button class="chip" data-ar="0.8">4:5</button>
-      <button class="chip" data-ar="1">1:1</button>
-      <button class="chip" data-ar="0">Full</button>
+    <div class="cam-top">
+      <button class="chip" id="gridbtn">Grid</button>
+      <button class="chip" id="diff">Diff</button>
+      <button class="chip" id="timer">Timer off</button>
     </div>
 
-    <div class="op-row">
-      <span class="lbl">GHOST</span>
-      <input type="range" id="opacity" min="0" max="100" value="45" aria-label="Ghost opacity">
-      <span class="lbl" id="op-val">45%</span>
-    </div>
-
-    <div class="op-row">
-      <span class="lbl">ZOOM</span>
-      <input type="range" id="zoom" min="0" max="100" value="50" aria-label="Ghost zoom">
-      <span class="lbl" id="zoom-val">100%</span>
-    </div>
-
-    <div class="chips-row">
-      <button class="chip on" id="t0">Now</button>
-      <button class="chip" id="t3">3s</button>
-      <button class="chip" id="t10">10s</button>
-      <button class="chip on" id="mirror">Mirror</button>
-    </div>
-
-    <div class="shoot-row">
-      <div class="side">
-        <button class="addbtn" id="add" title="Inspo photo" aria-label="Choose inspo photo">+</button>
-      </div>
+    <div class="cam-bar" id="cam-bar">
+      <button class="addbtn" id="add" aria-label="Choose inspo photo">+</button>
       <button class="shutter" id="shoot" disabled aria-label="Take photo"></button>
-      <div class="side right">
-        <button class="morebtn" id="morebtn">More</button>
-      </div>
+      <button class="switch" id="flip" aria-label="Switch camera">⟲</button>
     </div>
 
-    <div class="extra" id="extra">
+    <a class="scroll-hint" href="#settings">Settings ↓</a>
+
+    <div class="stage-msg on" id="msg">
+      <h2 id="msg-title">Starting camera…</h2>
+      <p id="msg-body"></p>
+      <div id="msg-extra"></div>
+      <button class="btn" id="retry" hidden>Try again</button>
+    </div>
+  </section>
+
+  <section class="settings" id="settings">
+    <div class="group">
+      <span class="label">Frame</span>
+      <div class="chips-row" id="aspect-row">
+        <button class="chip on" data-ar="0">Full</button>
+        <button class="chip" data-ar="0.8">4:5</button>
+        <button class="chip" data-ar="1">1:1</button>
+        <button class="chip" data-ar="0.5625">9:16</button>
+      </div>
+      <p class="hint" id="ar-note">Full matches your phone's camera exactly — no crop.</p>
+    </div>
+
+    <div class="group">
+      <span class="label">Ghost</span>
+      <div class="slider-row">
+        <span class="val" style="text-align:left">Fade</span>
+        <input type="range" id="opacity" min="0" max="100" value="45" aria-label="Ghost opacity">
+        <span class="val" id="op-val">45%</span>
+      </div>
+      <div class="slider-row">
+        <span class="val" style="text-align:left">Zoom</span>
+        <input type="range" id="zoom" min="0" max="100" value="50" aria-label="Ghost zoom">
+        <span class="val" id="zoom-val">100%</span>
+      </div>
       <div class="chips-row">
         <button class="chip" id="reset-ghost">Reset fit</button>
         <button class="chip" id="flip-ghost">Flip ghost</button>
-        <button class="chip" id="clear-ghost">Clear inspo</button>
+        <button class="chip" id="clear-ghost">Clear</button>
       </div>
-      <div id="shots-group" hidden>
-        <span class="label">This session</span>
-        <div class="shots" id="shots"></div>
+      <p class="hint">Drag the ghost on the camera to move it. Pinch or scroll to resize.</p>
+    </div>
+
+    <div class="group">
+      <span class="label">Camera</span>
+      <div class="chips-row">
+        <button class="chip on" id="mirror">Mirror</button>
+        <button class="chip on" id="screenflash">Screen flash</button>
       </div>
-      <p class="hint">Drag the ghost to move it. The zoom slider, pinch and scroll all do the same thing.</p>
-      <p class="hint kbd-hint">
-        <kbd>space</kbd> shoot &nbsp; <kbd>m</kbd> mirror &nbsp; <kbd>g</kbd> grid &nbsp;
-        <kbd>[</kbd><kbd>]</kbd> opacity &nbsp; <kbd>-</kbd><kbd>+</kbd> zoom &nbsp; <kbd>r</kbd> reset
-      </p>
+      <p class="hint">Phones have no front LED — screen flash lights you with the display instead.</p>
+    </div>
+
+    <div class="group" id="shots-group" hidden>
+      <span class="label">This session</span>
+      <div class="shots" id="shots"></div>
     </div>
 
     <input type="file" id="file" accept="image/*" hidden>
-  </div>
+  </section>
 </div>
 
 <div class="compare" id="compare">
@@ -386,7 +372,7 @@
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
   const stage = $('stage'), video = $('video'), ghost = $('ghost');
-  const msg = $('msg'), shootBtn = $('shoot'), compare = $('compare');
+  const camera = $('camera'), msg = $('msg'), shootBtn = $('shoot'), compare = $('compare');
 
   // ---------- state ----------
 
@@ -395,45 +381,37 @@
   let ghostURL = null, shotURL = null;
   let shots = [];
   let counting = false, delay = 0;
-  let videoAspect = 9 / 16;
-  let targetAspect = 9 / 16;      // 0 = use the camera's native shape
+  let videoAspect = 3 / 4;
+  let targetAspect = 0;           // 0 = the camera's own shape (default)
   const gt = { x: 0, y: 0, scale: 1, flip: false };
 
-  const isPhone = () => window.matchMedia('(max-width: 900px)').matches;
-
-  // Zoom bounds. Chosen symmetric about 1 (1/5 .. 5) so a log-mapped slider puts
-  // 100% exactly at the midpoint and zooming in and out feel like mirror images.
   const MIN_SCALE = 0.2, MAX_SCALE = 5;
   const LOG_SPAN = Math.log(MAX_SCALE);
-
-  // slider 0..100  <->  scale MIN..MAX, logarithmic
   const sliderToScale = v => Math.exp((v / 50 - 1) * LOG_SPAN);
   const scaleToSlider = s => (Math.log(s) / LOG_SPAN + 1) * 50;
 
-  function setScale(s) {
-    gt.scale = clamp(s, MIN_SCALE, MAX_SCALE);
-    applyGhostTransform();
-    syncZoomUI();
-  }
-  function syncZoomUI() {
-    $('zoom').value = Math.round(clamp(scaleToSlider(gt.scale), 0, 100));
-    $('zoom-val').textContent = Math.round(gt.scale * 100) + '%';
-  }
-
   // ---------- stage sizing ----------
 
-  // The stage box defines the OUTPUT crop: fit it inside the available area at
-  // the chosen aspect, let the video cover it, and whatever sits inside the box
-  // is exactly what gets saved.
   const stageAspect = () => targetAspect || videoAspect;
 
+  // Full screen width, like the iOS viewfinder, so a body appears at the same
+  // scale the system camera shows it. Only clamps if the frame would be taller
+  // than the screen.
   function layoutStage() {
-    const wrap = stage.parentElement;
-    const aw = wrap.clientWidth, ah = wrap.clientHeight;
-    if (!aw || !ah) return;
+    const vw = document.documentElement.clientWidth;
+    const vh = camera.clientHeight || window.innerHeight;
+    if (!vw || !vh) return;
+    const barH = $('cam-bar').offsetHeight || 0;
     const ar = stageAspect();
-    let w = aw, h = w / ar;
-    if (h > ah) { h = ah; w = h * ar; }
+
+    let w = vw, h = w / ar;                    // full screen width, always
+    if (h > vh) { h = vh; w = h * ar; }        // never taller than the screen
+
+    // If the frame fits above the shutter band, seat it there — that is where
+    // iOS puts a 4:3 preview. A taller frame (9:16) goes full-bleed instead and
+    // the band overlays it, which is also what iOS does.
+    const fitsAbove = h <= vh - barH;
+    stage.style.marginBottom = fitsAbove ? barH + 'px' : '0px';
     stage.style.width = Math.round(w) + 'px';
     stage.style.height = Math.round(h) + 'px';
   }
@@ -454,7 +432,7 @@
   async function startCamera() {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       showMsg('Camera needs https or localhost',
-        'Browsers block the camera on file:// pages. Serve the folder and reload from the address it prints:',
+        'Browsers block the camera on file:// pages. Serve the folder and reload:',
         '<code>python3 -m http.server 8000</code>');
       return;
     }
@@ -462,12 +440,12 @@
     stopCamera();
     showMsg('Starting camera…', 'Allow camera access when your browser asks.');
 
-    // Ask for a tall frame when the screen is tall, so a phone hands back a
-    // portrait stream rather than a wide one we would crop most of away.
+    // Only the LONG axis is constrained. Asking for 1080x1920 pins a 9:16 shape,
+    // which makes the browser crop the sensor before we ever see the frame —
+    // field of view lost for the whole session, no matter what we crop to later.
+    // Leaving the aspect free gives us the native frame to crop from ourselves.
     const portrait = window.innerHeight >= window.innerWidth;
-    const size = portrait
-      ? { width: { ideal: 1080 }, height: { ideal: 1920 } }
-      : { width: { ideal: 1920 }, height: { ideal: 1080 } };
+    const size = portrait ? { height: { ideal: 1920 } } : { width: { ideal: 1920 } };
 
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -479,9 +457,9 @@
       if (n === 'NotAllowedError' || n === 'SecurityError')
         showMsg('Camera permission denied', 'Allow camera access for this page, then tap below.', '', true);
       else if (n === 'NotFoundError' || n === 'OverconstrainedError')
-        showMsg('No camera found', 'Nothing matched that request. Try flipping the camera.', '', true);
+        showMsg('No camera found', 'Nothing matched that request.', '', true);
       else if (n === 'NotReadableError')
-        showMsg('Camera is busy', 'Another app is using it. Close that app, then tap below.', '', true);
+        showMsg('Camera is busy', 'Another app is using it. Close it, then tap below.', '', true);
       else
         showMsg('Could not start the camera', (err && err.message) || String(err), '', true);
       return;
@@ -492,21 +470,30 @@
     readVideoAspect();
     hideMsg();
     shootBtn.disabled = false;
-
-    try {
-      const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
-      $('flip').hidden = cams.length < 2;
-    } catch (_) {}
   }
 
   function readVideoAspect() {
     if (video.videoWidth) videoAspect = video.videoWidth / video.videoHeight;
     layoutStage();
+    updateArNote();
   }
 
   function stopCamera() {
     if (stream) stream.getTracks().forEach(t => t.stop());
     stream = null;
+  }
+
+  // Say plainly how much of the camera's view each frame option keeps.
+  function updateArNote() {
+    const src = videoAspect, box = stageAspect();
+    if (!targetAspect) {
+      $('ar-note').textContent = "Full matches your phone's camera exactly — no crop.";
+      return;
+    }
+    const kept = box < src ? box / src : 1;
+    $('ar-note').textContent = kept >= 0.999
+      ? 'Keeps the full width; trims top and bottom.'
+      : `Trims the sides — keeps ${Math.round(kept * 100)}% of the camera's width (${(1 / kept).toFixed(2)}× zoom).`;
   }
 
   // ---------- inspo ----------
@@ -521,8 +508,7 @@
     btn.classList.add('has');
     btn.textContent = '';
     const im = document.createElement('img');
-    im.src = ghostURL;
-    im.alt = 'Inspo';
+    im.src = ghostURL; im.alt = 'Inspo';
     btn.appendChild(im);
 
     resetGhost();
@@ -544,11 +530,16 @@
     ghost.style.transform =
       `translate(${gt.x}px, ${gt.y}px) scale(${gt.scale}) scaleX(${gt.flip ? -1 : 1})`;
   }
-  function resetGhost() {
-    gt.x = 0; gt.y = 0; gt.scale = 1; gt.flip = false;
+  function setScale(s) {
+    gt.scale = clamp(s, MIN_SCALE, MAX_SCALE);
     applyGhostTransform();
     syncZoomUI();
   }
+  function syncZoomUI() {
+    $('zoom').value = Math.round(clamp(scaleToSlider(gt.scale), 0, 100));
+    $('zoom-val').textContent = Math.round(gt.scale * 100) + '%';
+  }
+  function resetGhost() { gt.x = 0; gt.y = 0; gt.scale = 1; gt.flip = false; applyGhostTransform(); syncZoomUI(); }
   function applyOpacity() { ghost.style.opacity = ghostURL ? ($('opacity').value / 100) : 0; }
 
   // ---------- capture ----------
@@ -556,7 +547,7 @@
   function capture() {
     if (!stream || counting) return;
     if (delay > 0) return runCountdown(delay);
-    grab();
+    fireFlashThenGrab();
   }
 
   function runCountdown(secs) {
@@ -574,8 +565,19 @@
       el.textContent = '';
       counting = false;
       shootBtn.disabled = false;
-      grab();
+      fireFlashThenGrab();
     }, 1000);
+  }
+
+  // Phones have no front-facing LED — the screen is the flash. Light first, let
+  // the sensor adjust for a beat, then grab.
+  function fireFlashThenGrab() {
+    const flash = $('flash');
+    flash.classList.remove('fire');
+    void flash.offsetWidth;
+    flash.classList.add('fire');
+    const lit = $('screenflash').classList.contains('on') && facing === 'user';
+    setTimeout(grab, lit ? 150 : 0);
   }
 
   function grab() {
@@ -600,9 +602,6 @@
     // the ghost the user just lined themselves up against.
     if (video.classList.contains('mirrored')) { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
     ctx.drawImage(video, sx, sy, cw, ch, 0, 0, c.width, c.height);
-
-    const flash = $('flash');
-    flash.classList.remove('fire'); void flash.offsetWidth; flash.classList.add('fire');
 
     c.toBlob(blob => {
       if (!blob) return;
@@ -633,7 +632,6 @@
     $('stk-shot').src = url;
     const has = !!ghostURL;
     for (const el of [$('cmp-inspo'), $('stk-inspo')]) {
-      // src="" resolves to the page URL and fires a bogus request — unset it.
       if (has) el.src = ghostURL; else el.removeAttribute('src');
     }
     compare.querySelectorAll('.side')[0].style.display = has ? '' : 'none';
@@ -712,22 +710,25 @@
     if (it) loadGhost(it.getAsFile());
   });
 
-  $('zoom').addEventListener('input', () => setScale(sliderToScale(+$('zoom').value)));
-
   $('opacity').addEventListener('input', () => {
     $('op-val').textContent = $('opacity').value + '%';
     applyOpacity();
   });
+  $('zoom').addEventListener('input', () => setScale(sliderToScale(+$('zoom').value)));
 
   const toggle = (btn, fn) => btn.addEventListener('click', () => { fn(); btn.classList.toggle('on'); });
   toggle($('diff'),    () => ghost.classList.toggle('diff'));
   toggle($('mirror'),  () => video.classList.toggle('mirrored'));
   toggle($('gridbtn'), () => $('grid').classList.toggle('on'));
+  $('screenflash').addEventListener('click', () => $('screenflash').classList.toggle('on'));
   video.classList.add('mirrored');
 
-  $('morebtn').addEventListener('click', () => {
-    const open = $('extra').classList.toggle('on');
-    $('morebtn').textContent = open ? 'Less' : 'More';
+  // Timer cycles off -> 3 -> 10, the way the iOS control does.
+  const DELAYS = [0, 3, 10];
+  $('timer').addEventListener('click', () => {
+    delay = DELAYS[(DELAYS.indexOf(delay) + 1) % DELAYS.length];
+    $('timer').textContent = delay ? `Timer ${delay}s` : 'Timer off';
+    $('timer').classList.toggle('on', delay > 0);
   });
 
   $('flip').addEventListener('click', () => {
@@ -738,22 +739,17 @@
     startCamera();
   });
 
-  // Output shape
   $('aspect-row').addEventListener('click', e => {
     const b = e.target.closest('.chip');
     if (!b) return;
     targetAspect = parseFloat(b.dataset.ar) || 0;
     [...$('aspect-row').children].forEach(c => c.classList.toggle('on', c === b));
     layoutStage();
+    updateArNote();
   });
 
-  const timers = { t0: 0, t3: 3, t10: 10 };
-  Object.keys(timers).forEach(id => $(id).addEventListener('click', () => {
-    delay = timers[id];
-    Object.keys(timers).forEach(o => $(o).classList.toggle('on', o === id));
-  }));
-
   shootBtn.addEventListener('click', capture);
+  $('retry').addEventListener('click', startCamera);
   $('retake').addEventListener('click', closeCompare);
   $('stack-btn').addEventListener('click', () => {
     compare.classList.toggle('stacked');
@@ -789,14 +785,6 @@
   window.addEventListener('resize', relayout);
   window.addEventListener('orientationchange', relayout);
   video.addEventListener('loadedmetadata', readVideoAspect);
-
-  // Vertical is the phone default; desktop starts on the camera's own shape.
-  if (!isPhone()) {
-    targetAspect = 0;
-    [...$('aspect-row').children].forEach(c => c.classList.toggle('on', c.dataset.ar === '0'));
-  }
-
-  $('retry').addEventListener('click', startCamera);
 
   layoutStage();
   startCamera();

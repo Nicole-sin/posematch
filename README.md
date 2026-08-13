@@ -20,13 +20,23 @@ Add it to your home screen for a fullscreen, app-like version.
 
 `file://` will not work — browsers block the camera on it. The app says so if you try.
 
+## Layout
+
+The first screen is a viewfinder laid out like the iOS Camera app: the preview spans the **full
+screen width** so a body renders at the same scale the system camera shows it, with a shutter
+band at the bottom in the same place iOS puts it. Grid / Diff / Timer sit as chips over the top
+of the preview. Everything else — frame, ghost fade, ghost zoom, mirror, session shots — is one
+scroll down.
+
 ## Use
 
 1. Tap **+** to pick the pose you want to copy.
 2. Drag the ghost to position it. Use the **Zoom** slider (or pinch, or scroll) to size it to
    your framing, and **Flip ghost** to mirror it.
 3. Set the ghost opacity (45% is a good default).
-4. Pick an output shape — **9:16**, **4:5**, **1:1**, or **Full** (the camera's own).
+4. Pick a frame — **Full** (default, the camera's own shape), **4:5**, **1:1** or **9:16**.
+   Only 9:16 is narrower than the sensor, so it is the only one that trims width; the settings
+   panel spells out how much field of view each one keeps.
 5. Pick a timer, prop the phone up, get into the pose.
 6. Shoot, compare against the inspo, download.
 
@@ -47,8 +57,10 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
   Verified across 42 source-size/aspect combinations.
 - **Mirroring is WYSIWYG.** If the preview is mirrored, the saved frame is too. Un-mirroring on
   save would flip the pose relative to the ghost you just matched yourself against.
-- **Portrait is requested from the camera** when the screen is portrait, so a phone hands back a
-  tall stream instead of a wide one that would be mostly cropped away.
+- **Only the long axis is constrained** when requesting the camera. Asking for `1080x1920` pins a
+  9:16 shape, and the browser satisfies that by cropping the sensor before the frame ever reaches
+  the page — field of view lost for the whole session, which no later change of frame can undo.
+  Leaving the aspect free hands us the native frame to crop from ourselves.
 - Output lands on native sizes: 1080×1920 (9:16), 1080×1350 (4:5), 1080×1080 (1:1).
 - Rear camera un-mirrors automatically, since mirroring is a selfie convention.
 - **Ghost zoom is log-mapped** (20%–500%). On a linear track 100% would sit at 17% along the
