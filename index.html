@@ -340,6 +340,8 @@
       <span class="label">Frame</span>
       <div class="chips-row">
         <button class="chip" id="framed">Digicam frame</button>
+        <button class="chip on" id="fr-vert">Vertical</button>
+        <button class="chip" id="fr-horiz">Horizontal</button>
       </div>
       <p class="hint" id="frame-note">Composited at capture only — the live preview stays full size.
         The window is 3:4, so it uses your camera's full view with no crop.</p>
@@ -407,7 +409,10 @@
   // Window position measured from the artwork, as fractions so it survives any
   // output resolution. Frame art is 474x842 (9:16); the window is 3:4.
   const WIN = { x0: 0.3418, x1: 0.7658, y0: 0.4204, y1: 0.7399 };
-  const FRAME_OUT_W = 1080;       // frame art upscales ~2.3x; beyond this it softens
+  // Cap the LONG side, not the width — otherwise the rotated frame would come
+  // out smaller than the upright one and its window would lose resolution.
+  const FRAME_OUT_LONG = 1920;    // frame art upscales ~2.3x; beyond this it softens
+  let frameHoriz = false;         // rotate the digicam 90 degrees
   const isDesktop = () => window.matchMedia('(min-width: 901px)').matches;
   const gt = { x: 0, y: 0, scale: 1, flip: false };
 
@@ -677,15 +682,28 @@
     // If the artwork has not decoded yet, naturalWidth is 0 and every derived
     // dimension becomes NaN. Fall back to a normal shot rather than a dead canvas.
     if (!art.complete || !art.naturalWidth) return grabPlain(sw, sh);
-    const scale = FRAME_OUT_W / art.naturalWidth;
-    const outW = FRAME_OUT_W, outH = Math.round(art.naturalHeight * scale);
+
+    const aw = art.naturalWidth, ah = art.naturalHeight;
+    const scale = FRAME_OUT_LONG / Math.max(aw, ah);
+    const upW = Math.round(aw * scale), upH = Math.round(ah * scale);   // upright size
+    const outW = frameHoriz ? upH : upW;
+    const outH = frameHoriz ? upW : upH;
 
     const c = document.createElement('canvas');
     c.width = outW; c.height = outH;
     const ctx = c.getContext('2d');
 
-    const wx = WIN.x0 * outW, wy = WIN.y0 * outH;
-    const ww = (WIN.x1 - WIN.x0) * outW, wh = (WIN.y1 - WIN.y0) * outH;
+    // Rotating 90deg clockwise swaps the window's axes: what was a vertical
+    // 3:4 hole becomes a horizontal 4:3 one, and the x fraction is measured
+    // from the far side.
+    let wx, wy, ww, wh;
+    if (frameHoriz) {
+      wx = (1 - WIN.y1) * outW;  ww = (WIN.y1 - WIN.y0) * outW;
+      wy = WIN.x0 * outH;        wh = (WIN.x1 - WIN.x0) * outH;
+    } else {
+      wx = WIN.x0 * outW;        ww = (WIN.x1 - WIN.x0) * outW;
+      wy = WIN.y0 * outH;        wh = (WIN.y1 - WIN.y0) * outH;
+    }
 
     // cover-crop the sensor frame to the window's shape
     const boxAR = ww / wh, srcAR = sw / sh;
@@ -704,7 +722,16 @@
     ctx.drawImage(video, sx, sy, cw, ch, dx, wy - 2, ww + 4, wh + 4);
     ctx.restore();
 
-    ctx.drawImage(art, 0, 0, outW, outH);   // artwork on top; background stays transparent
+    // artwork on top; background stays transparent
+    if (frameHoriz) {
+      ctx.save();
+      ctx.translate(outW, 0);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(art, 0, 0, outH, outW);   // local axes are swapped under the rotation
+      ctx.restore();
+    } else {
+      ctx.drawImage(art, 0, 0, outW, outH);
+    }
     finishGrab(c, 'png');
   }
 
@@ -841,6 +868,16 @@
     framed = !framed;
     $('framed').classList.toggle('on', framed);
   });
+  const setFrameOrient = h => {
+    frameHoriz = h;
+    $('fr-vert').classList.toggle('on', !h);
+    $('fr-horiz').classList.toggle('on', h);
+    $('frame-note').textContent = h
+      ? 'Digicam turned sideways; the window becomes 4:3, which suits a laptop webcam.'
+      : 'Digicam upright; the window is 3:4, the same shape as a phone front camera.';
+  };
+  $('fr-vert').addEventListener('click', () => setFrameOrient(false));
+  $('fr-horiz').addEventListener('click', () => setFrameOrient(true));
   video.classList.add('mirrored');
   video.classList.add('fit');     // matches the default 9:16 fit frame
 

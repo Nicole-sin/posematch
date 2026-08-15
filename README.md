@@ -81,8 +81,22 @@ shape, so the photo drops in with **no crop and no zoom** — the frame supplies
 that a 9:16 crop would otherwise have to carve out of your field of view. Because of that, the
 framed capture ignores the frame-shape chips and always uses the window's own 3:4.
 
-Output is 1080x1918 PNG with a transparent background (the window is 458x613 of real photo).
-1080 wide is the cap: the artwork is only 474px natively and softens past ~2.3x.
+**Vertical / Horizontal** turns the digicam 90 degrees. The window turns with it, so the shape
+of the hole follows the shape of the photo:
+
+| | output | window | keeps of a 16:9 webcam |
+|---|---|---|---|
+| Vertical | 1081x1920 | 458x613 (3:4) | 42% |
+| Horizontal | 1920x1081 | 613x458 (4:3) | 75% |
+
+Horizontal suits a laptop, whose webcam is landscape — an upright window has to discard well over
+half its width to fill a 3:4 hole. It also reads more naturally, since the artwork is a landscape
+camera that was photographed turned upright; rotating it back puts the Canon branding the right
+way up. The photo inside stays upright either way.
+
+The long side is capped at 1920 rather than the width, or the rotated frame would come out
+smaller than the upright one and lose window resolution. The artwork is only 474px natively and
+softens past ~2.3x, which is what sets that cap.
 
 `frame.png` was cut from a JPEG by flood-filling white **inward from the border** rather than
 keying all white — the artwork contains 104 enclosed white regions (the window, the I-HEART-YOU
