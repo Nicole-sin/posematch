@@ -34,9 +34,11 @@ scroll down.
 2. Drag the ghost to position it. Use the **Zoom** slider (or pinch, or scroll) to size it to
    your framing, and **Flip ghost** to mirror it.
 3. Set the ghost opacity (45% is a good default).
-4. Pick a frame — **Full** (default, the camera's own shape), **4:5**, **1:1** or **9:16**.
-   Only 9:16 is narrower than the sensor, so it is the only one that trims width; the settings
-   panel spells out how much field of view each one keeps.
+4. Pick a frame — **9:16 fit** (default), **Full**, **4:5**, **1:1** or plain **9:16**.
+   Only plain 9:16 is narrower than the sensor, so it is the only one that trims width and the
+   only one that looks zoomed; **9:16 fit** gives the same story-shaped file by padding with
+   black bars instead. The settings panel reports the live sensor size and exactly how much
+   field of view the current frame keeps.
 5. Pick a timer, prop the phone up, get into the pose.
 6. Shoot, compare against the inspo, download.
 

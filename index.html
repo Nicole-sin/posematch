@@ -304,11 +304,11 @@
     <div class="group">
       <span class="label">Frame</span>
       <div class="chips-row" id="aspect-row">
-        <button class="chip on" data-ar="0">Full</button>
+        <button class="chip" data-ar="0">Full</button>
         <button class="chip" data-ar="0.8">4:5</button>
         <button class="chip" data-ar="1">1:1</button>
         <button class="chip" data-ar="0.5625">9:16</button>
-        <button class="chip" data-ar="0.5625" data-fit="1">9:16 fit</button>
+        <button class="chip on" data-ar="0.5625" data-fit="1">9:16 fit</button>
       </div>
       <p class="hint" id="ar-note">Full matches your phone's camera exactly — no crop.</p>
       <p class="hint" id="cam-info" style="opacity:.75"></p>
@@ -387,8 +387,10 @@
   let shots = [];
   let counting = false, delay = 0;
   let videoAspect = 3 / 4;
-  let targetAspect = 0;           // 0 = the camera's own shape (default)
-  let fitMode = false;            // true = letterbox the frame instead of cropping it
+  // Default: 9:16 letterboxed — a story-shaped file with the camera's full
+  // field of view, so nothing is cropped and nothing looks zoomed.
+  let targetAspect = 9 / 16;
+  let fitMode = true;             // true = letterbox the frame instead of cropping it
   const gt = { x: 0, y: 0, scale: 1, flip: false };
 
   const MIN_SCALE = 0.2, MAX_SCALE = 5;
@@ -764,6 +766,7 @@
   toggle($('gridbtn'), () => $('grid').classList.toggle('on'));
   $('screenflash').addEventListener('click', () => $('screenflash').classList.toggle('on'));
   video.classList.add('mirrored');
+  video.classList.add('fit');     // matches the default 9:16 fit frame
 
   // Timer cycles off -> 3 -> 10, the way the iOS control does.
   const DELAYS = [0, 3, 10];
