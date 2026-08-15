@@ -223,6 +223,31 @@
   }
   .hint { color: var(--muted); font-size: 11.5px; margin: 0; }
 
+  /* selection badges on the session thumbnails */
+  .shots .cell { position: relative; }
+  .shots .cell .badge {
+    position: absolute; top: 4px; left: 4px;
+    width: 21px; height: 21px; border-radius: 50%;
+    background: var(--accent); color: #33101f;
+    font: 800 11px/21px inherit; text-align: center;
+    display: none;
+  }
+  .shots .cell.picked .badge { display: block; }
+  .shots .cell.picked img { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .shots.selecting img { cursor: pointer; }
+
+  /* strip editor */
+  .strip-edit {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    flex-direction: column; gap: 10px;
+    padding: max(12px, env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+    background: rgba(0,0,0,.97);
+  }
+  .strip-edit.on { display: flex; }
+  .strip-holder { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  #strip-canvas { max-width: 100%; max-height: 100%; touch-action: none; cursor: grab; }
+  #strip-canvas:active { cursor: grabbing; }
+
   /* ================= COMPARE ================= */
 
   .compare {
@@ -301,6 +326,7 @@
   </section>
 
   <img id="frame-img" src="frame.png" alt="" hidden>
+  <img id="strip-img" src="photostrip.png" alt="" hidden>
 
   <section class="settings" id="settings">
     <div class="group">
@@ -358,11 +384,26 @@
 
     <div class="group" id="shots-group" hidden>
       <span class="label">This session</span>
+      <div class="chips-row">
+        <button class="chip" id="strip-mode">Make photostrip</button>
+        <button class="chip" id="strip-go" hidden disabled>Pick 3</button>
+        <button class="chip" id="strip-cancel" hidden>Cancel</button>
+      </div>
       <div class="shots" id="shots"></div>
+      <p class="hint" id="strip-hint" hidden>Tap three shots in the order you want them, top to bottom.</p>
     </div>
 
     <input type="file" id="file" accept="image/*" hidden>
   </section>
+</div>
+
+<div class="strip-edit" id="strip-edit">
+  <div class="compare-head">
+    <h2>Drag a photo to reposition it · scroll or pinch to zoom</h2>
+    <button class="btn" id="strip-save">Save to gallery</button>
+    <button class="btn" id="strip-close">Cancel</button>
+  </div>
+  <div class="strip-holder"><canvas id="strip-canvas"></canvas></div>
 </div>
 
 <div class="compare" id="compare">
@@ -750,12 +791,138 @@
     const box = $('shots');
     box.textContent = '';
     shots.forEach((s, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
       const im = document.createElement('img');
       im.src = s.url; im.alt = 'Shot ' + (i + 1);
-      im.addEventListener('click', () => { shotURL = s.url; openCompare(s.url); });
-      box.appendChild(im);
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      const at = stripSel.indexOf(i);
+      if (at >= 0) { cell.classList.add('picked'); badge.textContent = at + 1; }
+      cell.append(im, badge);
+      cell.addEventListener('click', () => {
+        if (selecting) togglePick(i);
+        else { shotURL = s.url; openCompare(s.url); }
+      });
+      box.appendChild(cell);
     });
     $('shots-group').hidden = shots.length === 0;
+  }
+
+  // ---------- photostrip ----------
+
+  // Measured off the artwork with a min-area-rect fit, stored as fractions so
+  // they hold at any output size. The HOLE is a pixel mask baked into the PNG;
+  // these quads only decide each photo's framing and tilt, so small errors here
+  // are invisible — the artwork masks the edges either way.
+  const STRIP_SLOTS = [
+    { cx: 0.2457, cy: 0.2887, w: 0.2247, h: 0.1209, deg: -6.88 },
+    { cx: 0.2623, cy: 0.4272, w: 0.2151, h: 0.1212, deg: -7.00 },
+    { cx: 0.2930, cy: 0.5649, w: 0.2244, h: 0.1219, deg: -7.25 }
+  ];
+  const STRIP_OUT_LONG = 2048;
+
+  let selecting = false;
+  let stripSel = [];        // indices into shots, in tap order
+  let stripView = [];       // { img, offX, offY, scale } per slot
+  let stripW = 0, stripH = 0;
+
+  function setSelecting(on) {
+    selecting = on;
+    stripSel = [];
+    $('shots').classList.toggle('selecting', on);
+    $('strip-mode').hidden = on;
+    $('strip-go').hidden = !on;
+    $('strip-cancel').hidden = !on;
+    $('strip-hint').hidden = !on;
+    updateStripBtn();
+    renderShots();
+  }
+
+  function updateStripBtn() {
+    const n = stripSel.length;
+    $('strip-go').disabled = n !== 3;
+    $('strip-go').textContent = n === 3 ? 'Make strip' : `Pick 3 (${n}/3)`;
+    $('strip-go').classList.toggle('on', n === 3);
+  }
+
+  function togglePick(i) {
+    const at = stripSel.indexOf(i);
+    if (at >= 0) stripSel.splice(at, 1);
+    else if (stripSel.length < 3) stripSel.push(i);
+    updateStripBtn();
+    renderShots();
+  }
+
+  // Photos sit BEHIND the artwork and show through the punched slots.
+  function drawStrip() {
+    const c = $('strip-canvas'), ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, stripW, stripH);
+    STRIP_SLOTS.forEach((q, i) => {
+      const v = stripView[i];
+      if (!v || !v.img || !v.img.naturalWidth) return;
+      const bleed = stripW * 0.006;               // tuck under the paper edge
+      const w = q.w * stripW + bleed, h = q.h * stripH + bleed;
+      ctx.save();
+      ctx.translate(q.cx * stripW, q.cy * stripH);
+      ctx.rotate(q.deg * Math.PI / 180);
+      ctx.beginPath(); ctx.rect(-w / 2, -h / 2, w, h); ctx.clip();
+      const im = v.img;
+      const s = Math.max(w / im.naturalWidth, h / im.naturalHeight) * v.scale;
+      const dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+      // Offsets are stored as a FRACTION of the available pan, so they stay
+      // valid when the zoom changes instead of drifting out of the slot.
+      const mx = Math.max(0, (dw - w) / 2), my = Math.max(0, (dh - h) / 2);
+      ctx.drawImage(im, -dw / 2 + v.offX * mx, -dh / 2 + v.offY * my, dw, dh);
+      ctx.restore();
+    });
+    ctx.drawImage($('strip-img'), 0, 0, stripW, stripH);
+  }
+
+  function openStripEditor() {
+    const art = $('strip-img');
+    if (!art.complete || !art.naturalWidth) return;
+    const sc = STRIP_OUT_LONG / Math.max(art.naturalWidth, art.naturalHeight);
+    stripW = Math.round(art.naturalWidth * sc);
+    stripH = Math.round(art.naturalHeight * sc);
+    const c = $('strip-canvas');
+    c.width = stripW; c.height = stripH;
+
+    stripView = stripSel.map(() => ({ img: null, offX: 0, offY: 0, scale: 1 }));
+    stripSel.forEach((idx, i) => {
+      const im = new Image();
+      im.onload = drawStrip;
+      im.src = shots[idx].url;
+      stripView[i].img = im;
+    });
+    drawStrip();
+    $('strip-edit').classList.add('on');
+  }
+
+  // canvas coords -> which slot, if any
+  function slotAt(px, py) {
+    for (let i = 0; i < STRIP_SLOTS.length; i++) {
+      const q = STRIP_SLOTS[i];
+      const t = q.deg * Math.PI / 180;
+      const dx = px - q.cx * stripW, dy = py - q.cy * stripH;
+      const lx =  dx * Math.cos(t) + dy * Math.sin(t);
+      const ly = -dx * Math.sin(t) + dy * Math.cos(t);
+      if (Math.abs(lx) <= q.w * stripW / 2 && Math.abs(ly) <= q.h * stripH / 2) return i;
+    }
+    return -1;
+  }
+
+  function saveStrip() {
+    $('strip-canvas').toBlob(blob => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      shots.push({ url, blob, ext: 'png' });
+      shotURL = url;
+      $('strip-edit').classList.remove('on');
+      setSelecting(false);
+      renderShots();
+      openCompare(url);
+    }, 'image/png');
   }
 
   // ---------- compare ----------
@@ -905,6 +1072,65 @@
     layoutStage();
     requestAnimationFrame(updateArNote);   // after the stage box has resized
   });
+
+  $('strip-mode').addEventListener('click', () => setSelecting(true));
+  $('strip-cancel').addEventListener('click', () => setSelecting(false));
+  $('strip-go').addEventListener('click', () => { if (stripSel.length === 3) openStripEditor(); });
+  $('strip-close').addEventListener('click', () => $('strip-edit').classList.remove('on'));
+  $('strip-save').addEventListener('click', saveStrip);
+
+  // drag a photo within its slot
+  (() => {
+    const c = $('strip-canvas');
+    let slot = -1, lastX = 0, lastY = 0;
+    const toCanvas = e => {
+      const r = c.getBoundingClientRect();
+      return [(e.clientX - r.left) * (c.width / r.width),
+              (e.clientY - r.top) * (c.height / r.height)];
+    };
+    c.addEventListener('pointerdown', e => {
+      const [x, y] = toCanvas(e);
+      slot = slotAt(x, y);
+      if (slot < 0) return;
+      c.setPointerCapture(e.pointerId);
+      lastX = x; lastY = y;
+    });
+    c.addEventListener('pointermove', e => {
+      if (slot < 0) return;
+      const [x, y] = toCanvas(e);
+      const q = STRIP_SLOTS[slot], v = stripView[slot];
+      const t = q.deg * Math.PI / 180;
+      const dx = x - lastX, dy = y - lastY;
+      // rotate the drag into the slot's own frame, then express it as a
+      // fraction of the pan headroom so it survives a later zoom change
+      const lx =  dx * Math.cos(t) + dy * Math.sin(t);
+      const ly = -dx * Math.sin(t) + dy * Math.cos(t);
+      const im = v.img;
+      if (im && im.naturalWidth) {
+        const bleed = stripW * 0.006;
+        const w = q.w * stripW + bleed, h = q.h * stripH + bleed;
+        const s = Math.max(w / im.naturalWidth, h / im.naturalHeight) * v.scale;
+        const mx = Math.max(1, (im.naturalWidth * s - w) / 2);
+        const my = Math.max(1, (im.naturalHeight * s - h) / 2);
+        v.offX = clamp(v.offX + lx / mx, -1, 1);
+        v.offY = clamp(v.offY + ly / my, -1, 1);
+      }
+      lastX = x; lastY = y;
+      drawStrip();
+    });
+    const end = e => { if (slot >= 0) { slot = -1; } };
+    c.addEventListener('pointerup', end);
+    c.addEventListener('pointercancel', end);
+    c.addEventListener('wheel', e => {
+      const [x, y] = toCanvas(e);
+      const i = slotAt(x, y);
+      if (i < 0) return;
+      e.preventDefault();
+      const v = stripView[i];
+      v.scale = clamp(v.scale * (e.deltaY < 0 ? 1.07 : 0.93), 1, 5);
+      drawStrip();
+    }, { passive: false });
+  })();
 
   shootBtn.addEventListener('click', capture);
   $('retry').addEventListener('click', startCamera);

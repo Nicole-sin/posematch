@@ -108,10 +108,39 @@ sticker, metal highlights) that a global key would have punched holes through. T
 eroded 1px to kill the halo left by JPEG edge blending, and the compositor draws the photo 2px
 oversized so it tucks under that edge instead of leaving a gap.
 
+## Photostrip (three shots)
+
+Take some shots, then **Make photostrip** in the session gallery. Tap three in the order you
+want them top-to-bottom, hit **Make strip**, and an editor opens where each photo can be
+**dragged within its slot** and scrolled/pinched to zoom. **Save to gallery** adds the finished
+strip as a downloadable item.
+
+The dragging is not a nicety. The slots are landscape (~1.44) and your shots are portrait, so a
+centred crop keeps only ~52% of the height — enough to lose your head or your legs. Repositioning
+is how you choose what survives.
+
+Output is 1640x2048 PNG, transparent, with slots around 368x248.
+
+### How the artwork was cut
+
+Same border-flood-fill idea as the digicam, with two differences:
+
+- The background is **cream**, not white, and the ticket stub is cream too — connectivity is what
+  keeps the stub while removing the surround.
+- There is a **drop shadow**, which the fill will not remove because it is darker than the
+  background. It is matted instead: shadow pixels are stored as **black with alpha set by how much
+  they darken the cream**, so they darken whatever is behind them rather than pasting a grey smear
+  onto a non-cream background.
+
+The three slot holes are punched as an **exact pixel mask**, not rectangles. The rotated quads
+(measured at about -7 degrees by a min-area-rect fit) only decide each photo's framing and tilt,
+so small errors there are invisible — the artwork masks the edges regardless.
+
 ## Known limits
 
 - Needs https or localhost. Browser security rule, no way around it.
 - Shots live in memory for the session only — download the ones you want to keep.
 - The ghost can be moved, scaled and flipped, but not rotated.
 - The digicam frame's resolution is limited by the source artwork (474px natively).
-- `frame.png` is 228KB and loads on every visit, whether or not the frame is used.
+- `frame.png` (228KB) and `photostrip.png` (220KB) both load on every visit, used or not.
+- The photostrip slots are ~184x124 in the source art, so they cap how sharp each photo can be.
