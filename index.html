@@ -64,6 +64,9 @@
     background: #000;
   }
   #video.mirrored { transform: scaleX(-1); }
+  /* Fit mode: show the whole sensor frame and let the stage's black background
+     become the letterbox bars, instead of cropping to fill. */
+  #video.fit { object-fit: contain; }
 
   #ghost {
     position: absolute; inset: 0;
@@ -305,6 +308,7 @@
         <button class="chip" data-ar="0.8">4:5</button>
         <button class="chip" data-ar="1">1:1</button>
         <button class="chip" data-ar="0.5625">9:16</button>
+        <button class="chip" data-ar="0.5625" data-fit="1">9:16 fit</button>
       </div>
       <p class="hint" id="ar-note">Full matches your phone's camera exactly — no crop.</p>
       <p class="hint" id="cam-info" style="opacity:.75"></p>
@@ -384,6 +388,7 @@
   let counting = false, delay = 0;
   let videoAspect = 3 / 4;
   let targetAspect = 0;           // 0 = the camera's own shape (default)
+  let fitMode = false;            // true = letterbox the frame instead of cropping it
   const gt = { x: 0, y: 0, scale: 1, flip: false };
 
   const MIN_SCALE = 0.2, MAX_SCALE = 5;
@@ -489,7 +494,9 @@
     const src = videoAspect, box = stageAspect();
     const kept = box < src ? box / src : 1;
 
-    $('ar-note').textContent = !targetAspect
+    $('ar-note').textContent = fitMode
+      ? 'Keeps the whole camera view and pads with black bars — no zoom.'
+      : !targetAspect
       ? "Full matches your phone's camera exactly — no crop."
       : kept >= 0.999
         ? 'Keeps the full width; trims top and bottom — no zoom.'
@@ -501,7 +508,10 @@
     const sw = video.videoWidth, sh = video.videoHeight;
     $('cam-info').textContent = sw
       ? `Sensor ${sw}x${sh} (${src.toFixed(2)}) · frame ${stage.clientWidth}x${stage.clientHeight}`
-        + ` (${box.toFixed(2)}) · ${kept >= 0.999 ? 'no side crop' : Math.round((1 - kept) * 100) + '% of width cropped'}`
+        + ` (${box.toFixed(2)}) · `
+        + (fitMode ? 'letterboxed, nothing cropped'
+                   : kept >= 0.999 ? 'no side crop'
+                   : Math.round((1 - kept) * 100) + '% of width cropped')
       : '';
   }
 
@@ -593,25 +603,48 @@
     const sw = video.videoWidth, sh = video.videoHeight;
     if (!sw || !sh) return;
 
-    // Reproduce the object-fit:cover crop the stage is showing, so the saved
-    // photo is the visible framing rather than the whole sensor frame.
     const boxAR = stage.clientWidth / stage.clientHeight;
     const srcAR = sw / sh;
+    const mirrored = video.classList.contains('mirrored');
+    const c = document.createElement('canvas');
+
+    if (fitMode) {
+      // Letterbox: keep the ENTIRE sensor frame and pad out to the target shape.
+      // Nothing is discarded, so there is no apparent zoom — the cost is bars.
+      let outW, outH;
+      if (srcAR > boxAR) { outW = sw; outH = Math.round(sw / boxAR); }   // bars top/bottom
+      else               { outH = sh; outW = Math.round(sh * boxAR); }   // bars left/right
+      c.width = outW; c.height = outH;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, outW, outH);
+      // Offsets are symmetric, so the same dx works mirrored or not.
+      const dx = (outW - sw) / 2, dy = (outH - sh) / 2;
+      if (mirrored) { ctx.translate(outW, 0); ctx.scale(-1, 1); }
+      ctx.drawImage(video, dx, dy, sw, sh);
+      return finishGrab(c);
+    }
+
+    // Reproduce the object-fit:cover crop the stage is showing, so the saved
+    // photo is the visible framing rather than the whole sensor frame.
     let cw = sw, ch = sh;
     if (srcAR > boxAR) cw = sh * boxAR;      // source wider  -> trim the sides
     else               ch = sw / boxAR;      // source taller -> trim top/bottom
     const sx = (sw - cw) / 2, sy = (sh - ch) / 2;
 
-    const c = document.createElement('canvas');
     c.width = Math.round(cw);
     c.height = Math.round(ch);
     const ctx = c.getContext('2d');
 
     // Mirror to match the preview. Un-mirroring would flip the pose relative to
     // the ghost the user just lined themselves up against.
-    if (video.classList.contains('mirrored')) { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
+    if (mirrored) { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
     ctx.drawImage(video, sx, sy, cw, ch, 0, 0, c.width, c.height);
 
+    finishGrab(c);
+  }
+
+  function finishGrab(c) {
     c.toBlob(blob => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
@@ -752,6 +785,8 @@
     const b = e.target.closest('.chip');
     if (!b) return;
     targetAspect = parseFloat(b.dataset.ar) || 0;
+    fitMode = b.dataset.fit === '1';
+    video.classList.toggle('fit', fitMode);
     [...$('aspect-row').children].forEach(c => c.classList.toggle('on', c === b));
     layoutStage();
     requestAnimationFrame(updateArNote);   // after the stage box has resized
