@@ -70,11 +70,12 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
   bar; log-mapped it lands dead centre and zooming in and out are mirror images. The slider,
   pinch and scroll all drive one value and stay in sync.
 
-## Digicam frame (desktop)
+## Digicam frame
 
-On screens wider than 900px a **Digicam frame** toggle appears. It composites the shot into the
-pink Canon artwork at capture time only — the live preview stays full size, because shrinking it
-to the frame's window would undo the whole point of matching your outline at real scale.
+A **Digicam frame** toggle in the settings panel, on phone and desktop alike. It composites the
+shot into the pink Canon artwork at capture time only — the live preview stays full size, because
+shrinking it to the frame's window would undo the whole point of matching your outline at real
+scale.
 
 The artwork is 9:16 overall with a **3:4 window**, which happens to be exactly the front camera's
 shape, so the photo drops in with **no crop and no zoom** — the frame supplies the story shape
@@ -88,6 +89,9 @@ of the hole follows the shape of the photo:
 |---|---|---|---|
 | Vertical | 1081x1920 | 458x613 (3:4) | 42% |
 | Horizontal | 1920x1081 | 613x458 (4:3) | 75% |
+
+A phone's 3:4 front camera fills either window with no loss of width — vertical is an exact
+match for it, horizontal simply trims top and bottom.
 
 Horizontal suits a laptop, whose webcam is landscape — an upright window has to discard well over
 half its width to fill a 3:4 hole. It also reads more naturally, since the artwork is a landscape
@@ -109,4 +113,5 @@ oversized so it tucks under that edge instead of leaving a gap.
 - Needs https or localhost. Browser security rule, no way around it.
 - Shots live in memory for the session only — download the ones you want to keep.
 - The ghost can be moved, scaled and flipped, but not rotated.
-- The digicam frame is desktop-only, and its resolution is limited by the source artwork.
+- The digicam frame's resolution is limited by the source artwork (474px natively).
+- `frame.png` is 228KB and loads on every visit, whether or not the frame is used.

@@ -336,15 +336,15 @@
       <p class="hint">Drag the ghost on the camera to move it. Pinch or scroll to resize.</p>
     </div>
 
-    <div class="group" id="frame-group" hidden>
+    <div class="group" id="frame-group">
       <span class="label">Frame</span>
       <div class="chips-row">
         <button class="chip" id="framed">Digicam frame</button>
         <button class="chip on" id="fr-vert">Vertical</button>
         <button class="chip" id="fr-horiz">Horizontal</button>
       </div>
-      <p class="hint" id="frame-note">Composited at capture only — the live preview stays full size.
-        The window is 3:4, so it uses your camera's full view with no crop.</p>
+      <p class="hint" id="frame-note">Digicam upright; the window is 3:4, the same shape as a phone
+        front camera. Composited at capture only, so the live preview stays full size.</p>
     </div>
 
     <div class="group">
@@ -413,7 +413,6 @@
   // out smaller than the upright one and its window would lose resolution.
   const FRAME_OUT_LONG = 1920;    // frame art upscales ~2.3x; beyond this it softens
   let frameHoriz = false;         // rotate the digicam 90 degrees
-  const isDesktop = () => window.matchMedia('(min-width: 901px)').matches;
   const gt = { x: 0, y: 0, scale: 1, flip: false };
 
   const MIN_SCALE = 0.2, MAX_SCALE = 5;
@@ -856,8 +855,6 @@
   toggle($('gridbtn'), () => $('grid').classList.toggle('on'));
   $('screenflash').addEventListener('click', () => $('screenflash').classList.toggle('on'));
 
-  // Desktop only — the artwork needs the room, and a phone screen is already portrait.
-  if (isDesktop()) $('frame-group').hidden = false;
   $('frame-img').addEventListener('error', () => {
     $('framed').disabled = true;
     framed = false;
@@ -872,9 +869,10 @@
     frameHoriz = h;
     $('fr-vert').classList.toggle('on', !h);
     $('fr-horiz').classList.toggle('on', h);
-    $('frame-note').textContent = h
+    $('frame-note').textContent = (h
       ? 'Digicam turned sideways; the window becomes 4:3, which suits a laptop webcam.'
-      : 'Digicam upright; the window is 3:4, the same shape as a phone front camera.';
+      : 'Digicam upright; the window is 3:4, the same shape as a phone front camera.')
+      + ' Composited at capture only, so the live preview stays full size.';
   };
   $('fr-vert').addEventListener('click', () => setFrameOrient(false));
   $('fr-horiz').addEventListener('click', () => setFrameOrient(true));
