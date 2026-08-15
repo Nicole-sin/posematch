@@ -300,6 +300,8 @@
     </div>
   </section>
 
+  <img id="frame-img" src="frame.png" alt="" hidden>
+
   <section class="settings" id="settings">
     <div class="group">
       <span class="label">Frame</span>
@@ -332,6 +334,15 @@
         <button class="chip" id="clear-ghost">Clear</button>
       </div>
       <p class="hint">Drag the ghost on the camera to move it. Pinch or scroll to resize.</p>
+    </div>
+
+    <div class="group" id="frame-group" hidden>
+      <span class="label">Frame</span>
+      <div class="chips-row">
+        <button class="chip" id="framed">Digicam frame</button>
+      </div>
+      <p class="hint" id="frame-note">Composited at capture only — the live preview stays full size.
+        The window is 3:4, so it uses your camera's full view with no crop.</p>
     </div>
 
     <div class="group">
@@ -391,6 +402,13 @@
   // field of view, so nothing is cropped and nothing looks zoomed.
   let targetAspect = 9 / 16;
   let fitMode = true;             // true = letterbox the frame instead of cropping it
+  let framed = false;             // composite into the digicam frame at capture
+
+  // Window position measured from the artwork, as fractions so it survives any
+  // output resolution. Frame art is 474x842 (9:16); the window is 3:4.
+  const WIN = { x0: 0.3418, x1: 0.7658, y0: 0.4204, y1: 0.7399 };
+  const FRAME_OUT_W = 1080;       // frame art upscales ~2.3x; beyond this it softens
+  const isDesktop = () => window.matchMedia('(min-width: 901px)').matches;
   const gt = { x: 0, y: 0, scale: 1, flip: false };
 
   const MIN_SCALE = 0.2, MAX_SCALE = 5;
@@ -604,6 +622,11 @@
   function grab() {
     const sw = video.videoWidth, sh = video.videoHeight;
     if (!sw || !sh) return;
+    if (framed) return grabFramed(sw, sh);
+    grabPlain(sw, sh);
+  }
+
+  function grabPlain(sw, sh) {
 
     const boxAR = stage.clientWidth / stage.clientHeight;
     const srcAR = sw / sh;
@@ -646,15 +669,55 @@
     finishGrab(c);
   }
 
-  function finishGrab(c) {
+  // The photo goes BEHIND the artwork and shows through the transparent window,
+  // so the frame's own shape decides the output — the frame-shape chips do not
+  // apply here. The window is 3:4, the same as the sensor, so nothing is cropped.
+  function grabFramed(sw, sh) {
+    const art = $('frame-img');
+    // If the artwork has not decoded yet, naturalWidth is 0 and every derived
+    // dimension becomes NaN. Fall back to a normal shot rather than a dead canvas.
+    if (!art.complete || !art.naturalWidth) return grabPlain(sw, sh);
+    const scale = FRAME_OUT_W / art.naturalWidth;
+    const outW = FRAME_OUT_W, outH = Math.round(art.naturalHeight * scale);
+
+    const c = document.createElement('canvas');
+    c.width = outW; c.height = outH;
+    const ctx = c.getContext('2d');
+
+    const wx = WIN.x0 * outW, wy = WIN.y0 * outH;
+    const ww = (WIN.x1 - WIN.x0) * outW, wh = (WIN.y1 - WIN.y0) * outH;
+
+    // cover-crop the sensor frame to the window's shape
+    const boxAR = ww / wh, srcAR = sw / sh;
+    let cw = sw, ch = sh;
+    if (srcAR > boxAR) cw = sh * boxAR; else ch = sw / boxAR;
+    const sx = (sw - cw) / 2, sy = (sh - ch) / 2;
+
+    ctx.save();
+    // 2px bleed: the alpha was eroded by 1px to kill the white halo, so the photo
+    // is drawn slightly oversized to tuck under the frame edge instead of gapping.
+    ctx.beginPath();
+    ctx.rect(wx - 2, wy - 2, ww + 4, wh + 4);
+    ctx.clip();
+    if (video.classList.contains('mirrored')) { ctx.translate(outW, 0); ctx.scale(-1, 1); }
+    const dx = video.classList.contains('mirrored') ? outW - (wx - 2) - (ww + 4) : wx - 2;
+    ctx.drawImage(video, sx, sy, cw, ch, dx, wy - 2, ww + 4, wh + 4);
+    ctx.restore();
+
+    ctx.drawImage(art, 0, 0, outW, outH);   // artwork on top; background stays transparent
+    finishGrab(c, 'png');
+  }
+
+  function finishGrab(c, ext) {
+    const png = ext === 'png';
     c.toBlob(blob => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
-      shots.push({ url, blob });
+      shots.push({ url, blob, ext: png ? 'png' : 'jpg' });
       shotURL = url;
       renderShots();
       openCompare(url);
-    }, 'image/jpeg', 0.92);
+    }, png ? 'image/png' : 'image/jpeg', 0.92);
   }
 
   function renderShots() {
@@ -765,6 +828,19 @@
   toggle($('mirror'),  () => video.classList.toggle('mirrored'));
   toggle($('gridbtn'), () => $('grid').classList.toggle('on'));
   $('screenflash').addEventListener('click', () => $('screenflash').classList.toggle('on'));
+
+  // Desktop only — the artwork needs the room, and a phone screen is already portrait.
+  if (isDesktop()) $('frame-group').hidden = false;
+  $('frame-img').addEventListener('error', () => {
+    $('framed').disabled = true;
+    framed = false;
+    $('frame-note').textContent = 'frame.png could not be loaded.';
+  });
+  $('framed').addEventListener('click', () => {
+    if ($('framed').disabled) return;
+    framed = !framed;
+    $('framed').classList.toggle('on', framed);
+  });
   video.classList.add('mirrored');
   video.classList.add('fit');     // matches the default 9:16 fit frame
 
@@ -806,7 +882,8 @@
     if (!shotURL) return;
     const a = document.createElement('a');
     a.href = shotURL;
-    a.download = 'pose-match-' + (shots.findIndex(s => s.url === shotURL) + 1) + '.jpg';
+    const i = shots.findIndex(s => s.url === shotURL);
+    a.download = 'pose-match-' + (i + 1) + '.' + ((shots[i] && shots[i].ext) || 'jpg');
     a.click();
   });
 

@@ -1,8 +1,9 @@
 # Pose Match
 
 Upload a photo of a pose you want to copy. It floats over your live camera as a translucent
-"ghost" so you can line yourself up, then you shoot. Phone-first, single self-contained HTML
-file, no dependencies, no build step. Nothing is ever uploaded — everything stays on device.
+"ghost" so you can line yourself up, then you shoot. Phone-first, no dependencies, no build
+step — just `index.html` plus one image asset. Nothing is ever uploaded; everything stays on
+device.
 
 ## Use it on your phone
 
@@ -69,8 +70,29 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
   bar; log-mapped it lands dead centre and zooming in and out are mirror images. The slider,
   pinch and scroll all drive one value and stay in sync.
 
+## Digicam frame (desktop)
+
+On screens wider than 900px a **Digicam frame** toggle appears. It composites the shot into the
+pink Canon artwork at capture time only — the live preview stays full size, because shrinking it
+to the frame's window would undo the whole point of matching your outline at real scale.
+
+The artwork is 9:16 overall with a **3:4 window**, which happens to be exactly the front camera's
+shape, so the photo drops in with **no crop and no zoom** — the frame supplies the story shape
+that a 9:16 crop would otherwise have to carve out of your field of view. Because of that, the
+framed capture ignores the frame-shape chips and always uses the window's own 3:4.
+
+Output is 1080x1918 PNG with a transparent background (the window is 458x613 of real photo).
+1080 wide is the cap: the artwork is only 474px natively and softens past ~2.3x.
+
+`frame.png` was cut from a JPEG by flood-filling white **inward from the border** rather than
+keying all white — the artwork contains 104 enclosed white regions (the window, the I-HEART-YOU
+sticker, metal highlights) that a global key would have punched holes through. The alpha is
+eroded 1px to kill the halo left by JPEG edge blending, and the compositor draws the photo 2px
+oversized so it tucks under that edge instead of leaving a gap.
+
 ## Known limits
 
 - Needs https or localhost. Browser security rule, no way around it.
 - Shots live in memory for the session only — download the ones you want to keep.
 - The ghost can be moved, scaled and flipped, but not rotated.
+- The digicam frame is desktop-only, and its resolution is limited by the source artwork.
