@@ -40,8 +40,8 @@ scroll down.
    badly cropped by a tall window). The other options are **4:5**, **1:1** and plain **9:16**.
    Only plain 9:16 is narrower than the sensor, so it is the only one that trims width and the
    only one that looks zoomed; **9:16 fit** gives the same story-shaped file by padding with
-   black bars instead. The settings panel reports the live sensor size and exactly how much
-   field of view the current frame keeps.
+   black bars instead. The settings panel explains what the current frame
+   costs you in field of view.
 5. Pick a timer, prop the phone up, get into the pose.
 6. Shoot, compare against the inspo, download.
 

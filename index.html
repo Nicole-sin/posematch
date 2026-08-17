@@ -542,7 +542,6 @@
         <button data-ar="0.5625" data-fit="1">9:16 fit</button>
       </div>
       <p class="hint" id="ar-note">Full matches your phone's camera exactly — no crop.</p>
-      <p class="hint" id="cam-info" style="opacity:.75"></p>
     </div>
 
     <div class="group">
@@ -792,16 +791,6 @@
         : `Trims the sides: keeps ${Math.round(kept * 100)}% of the camera's width, `
           + `so everything looks ${(1 / kept).toFixed(2)}× closer than Full.`;
 
-    // Live numbers straight off this device — the sensor's own shape decides how
-    // much any given frame has to crop, and it differs between phones.
-    const sw = video.videoWidth, sh = video.videoHeight;
-    $('cam-info').textContent = sw
-      ? `Sensor ${sw}x${sh} (${src.toFixed(2)}) · frame ${stage.clientWidth}x${stage.clientHeight}`
-        + ` (${box.toFixed(2)}) · `
-        + (fitMode ? 'letterboxed, nothing cropped'
-                   : kept >= 0.999 ? 'no side crop'
-                   : Math.round((1 - kept) * 100) + '% of width cropped')
-      : '';
   }
 
   // ---------- inspo ----------
