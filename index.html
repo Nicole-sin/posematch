@@ -60,6 +60,33 @@
 <rect width='140' height='140' filter='url(%23n)' opacity='.55'/></svg>");
   }
 
+  /* ================= SPLASH ================= */
+
+  /* The whole app hides behind this. It also earns its keep: starting the
+     camera from a real click is far more reliable than doing it on load,
+     which some browsers refuse without a user gesture. */
+  .splash {
+    position: fixed; inset: 0; z-index: 60;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+    cursor: pointer;
+    transition: opacity .38s ease;
+  }
+  .splash.gone { opacity: 0; pointer-events: none; }
+  .splash img {
+    width: min(72vw, 64vh, 880px);
+    height: auto; display: block;
+    filter: drop-shadow(0 26px 60px rgba(0,0,0,.65));
+    transition: transform .3s cubic-bezier(.2,.9,.3,1);
+  }
+  .splash:hover img, .splash:focus-visible img { transform: scale(1.07); }
+  .splash.press img { transform: scale(.96); }
+  .splash:focus { outline: none; }
+  .splash .pop {
+    position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none;
+  }
+  .splash.press .pop { animation: flashfade .38s ease-out; }
+
   /* ================= CAMERA (first screen) ================= */
 
   .camera {
@@ -482,6 +509,11 @@
 </style>
 </head>
 <body>
+
+<div class="splash" id="splash" role="button" tabindex="0" aria-label="Open the camera">
+  <img src="camera.png" alt="">
+  <div class="pop"></div>
+</div>
 
 <div class="app">
   <section class="camera" id="camera">
@@ -1411,12 +1443,29 @@
   window.addEventListener('orientationchange', relayout);
   video.addEventListener('loadedmetadata', readVideoAspect);
 
+  // The camera starts on the splash click, not on load — see .splash.
+  const splash = $('splash');
+  function openApp() {
+    if (splash.dataset.done) return;
+    splash.dataset.done = '1';
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    splash.classList.add('press');
+    setTimeout(() => {
+      splash.classList.add('gone');
+      setTimeout(() => { splash.style.display = 'none'; }, reduced ? 0 : 400);
+      startCamera();
+    }, reduced ? 0 : 150);
+  }
+  splash.addEventListener('click', openApp);
+  splash.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openApp(); }
+  });
+
   pickDefaultFrame();
   updateVF();
   tickStamp();
   setInterval(tickStamp, 20000);
   layoutStage();
-  startCamera();
 
   window.addEventListener('beforeunload', () => {
     stopCamera();

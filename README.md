@@ -138,6 +138,12 @@ The three slot holes are punched as an **exact pixel mask**, not rectangles. The
 (measured at about -7 degrees by a min-area-rect fit) only decide each photo's framing and tilt,
 so small errors there are invisible — the artwork masks the edges regardless.
 
+## Opening it
+
+The page loads to a single camera, centred on black. It grows on hover; clicking it flashes and
+reveals the app. That is not only decoration — the webcam now starts from a real click rather
+than on page load, which some browsers require and all of them handle more gracefully.
+
 ## Look
 
 2000s compact-camera photobooth. Black, white and silver, with colour used only where a camera
