@@ -138,6 +138,23 @@ The three slot holes are punched as an **exact pixel mask**, not rectangles. The
 (measured at about -7 degrees by a min-area-rect fit) only decide each photo's framing and tilt,
 so small errors there are invisible — the artwork masks the edges regardless.
 
+## Controls
+
+Three kinds of control, three appearances — the panel used to render all three identically,
+which is what made it read as generic:
+
+- **Segmented** (`.seg`) for mutually exclusive choices — frame shape, digicam orientation. One
+  container with hairline dividers, so the group reads as a single choice before a word of it is
+  read. Selection is a lift within the group rather than a colour swap.
+- **Toggle** (`.toggle`) for independent on/off — mirror, screen flash, digicam frame,
+  superimpose. Solid when on, so the state is unmistakable.
+- **Action** (`.act`) for things that do something. Quietest of the three, no fill until hover.
+  Exactly one `.primary` is saturated at a time.
+
+Labels are lowercase at regular weight with no tracking, and section captions are quiet rather
+than tracked caps. The only saturated element on a screen should be the thing you are meant to
+press next.
+
 ## Known limits
 
 - Needs https or localhost. Browser security rule, no way around it.

@@ -204,12 +204,96 @@
   }
   .group { display: flex; flex-direction: column; gap: 9px; }
   .label {
-    font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
-    color: var(--muted); font-weight: 700;
+    font-size: 12px;
+    color: rgba(255, 255, 255, .42);
+    font-weight: 400;
   }
-  .chips-row { display: flex; gap: 7px; flex-wrap: wrap; }
-  .chips-row .chip { background: var(--panel); border-color: var(--line); }
-  .chips-row .chip.on { background: var(--accent); border-color: var(--accent); color: #33101f; }
+  .chips-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  /* Three kinds of control, three appearances. Rendering "pick one of these",
+     "on or off" and "do a thing" identically is what made the panel read as
+     generic — the buttons said nothing about how they behave. */
+
+  /* SEGMENTED — mutually exclusive. One container, hairline dividers, so the
+     group reads as a single choice before a word is read. */
+  .seg {
+    display: inline-flex;
+    padding: 3px;
+    background: rgba(255, 255, 255, .055);
+    border: 1px solid rgba(255, 255, 255, .10);
+    border-radius: 999px;
+  }
+  .seg button {
+    position: relative;
+    appearance: none; -webkit-appearance: none;
+    border: 0; background: transparent;
+    color: rgba(255, 255, 255, .58);
+    font: 400 13px/1 inherit;      /* lowercase, regular — not shouty */
+    padding: 10px 15px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color .15s ease, background .15s ease;
+  }
+  .seg button:hover { color: rgba(255, 255, 255, .85); }
+  .seg button + button::before {
+    content: '';
+    position: absolute; left: 0; top: 24%; bottom: 24%;
+    width: 1px; background: rgba(255, 255, 255, .11);
+    transition: opacity .15s ease;
+  }
+  /* Selection is a lift within the group, not a colour swap. */
+  .seg button.on {
+    background: rgba(255, 255, 255, .15);
+    color: #fff;
+  }
+  .seg button.on::before, .seg button.on + button::before { opacity: 0; }
+
+  /* TOGGLE — independent on/off. Solid when on, so it is unmistakably a state. */
+  .toggle {
+    appearance: none; -webkit-appearance: none;
+    padding: 10px 17px;
+    font: 400 13px/1 inherit;
+    color: rgba(255, 255, 255, .62);
+    background: rgba(255, 255, 255, .055);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 999px;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .toggle:hover { color: rgba(255, 255, 255, .9); background: rgba(255, 255, 255, .09); }
+  .toggle.on {
+    background: rgba(255, 255, 255, .93);
+    border-color: transparent;
+    color: #14161c;
+  }
+  .toggle:disabled { opacity: .35; cursor: not-allowed; }
+  .toggle:disabled:hover { background: rgba(255, 255, 255, .055); color: rgba(255,255,255,.62); }
+
+  /* ACTION — does something. Quietest of the three; no fill until hovered. */
+  .act {
+    appearance: none; -webkit-appearance: none;
+    padding: 10px 17px;
+    font: 400 13px/1 inherit;
+    color: rgba(255, 255, 255, .62);
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, .13);
+    border-radius: 999px;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s ease, color .15s ease;
+  }
+  .act:hover:not(:disabled) { background: rgba(255, 255, 255, .08); color: #fff; }
+  .act:disabled { opacity: .35; cursor: not-allowed; }
+  /* Exactly one saturated control at a time, like the reference's shutter. */
+  .act.primary {
+    background: var(--accent);
+    border-color: transparent;
+    color: #2a0d18;
+    font-weight: 600;
+  }
+  .act.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.06); }
+
+  .seg button:active, .toggle:active, .act:active { transform: translateY(1px); }
 
   .slider-row { display: flex; align-items: center; gap: 12px; }
   .slider-row .val { color: var(--muted); font-size: 12px; min-width: 42px; text-align: right;
@@ -275,14 +359,6 @@
   .compare.stacked .side { display: none; }
   .compare.stacked .stack { display: block; }
 
-  .btn {
-    padding: 10px 14px; font: 650 13px/1 inherit; color: var(--text);
-    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
-    cursor: pointer; white-space: nowrap; min-height: 42px;
-  }
-  .btn:disabled { opacity: .4; cursor: not-allowed; }
-  .btn.on { border-color: var(--accent); color: var(--accent); }
-
   [hidden] { display: none !important; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -304,9 +380,9 @@
     </div>
 
     <div class="cam-top">
-      <button class="chip" id="gridbtn">Grid</button>
-      <button class="chip" id="diff">Diff</button>
-      <button class="chip" id="timer">Timer off</button>
+      <button class="chip" id="gridbtn">grid</button>
+      <button class="chip" id="diff">diff</button>
+      <button class="chip" id="timer">timer off</button>
     </div>
 
     <div class="cam-bar" id="cam-bar">
@@ -321,7 +397,7 @@
       <h2 id="msg-title">Starting camera…</h2>
       <p id="msg-body"></p>
       <div id="msg-extra"></div>
-      <button class="btn" id="retry" hidden>Try again</button>
+      <button class="act" id="retry" hidden>try again</button>
     </div>
   </section>
 
@@ -330,20 +406,20 @@
 
   <section class="settings" id="settings">
     <div class="group">
-      <span class="label">Frame</span>
-      <div class="chips-row" id="aspect-row">
-        <button class="chip" data-ar="0">Full</button>
-        <button class="chip" data-ar="0.8">4:5</button>
-        <button class="chip" data-ar="1">1:1</button>
-        <button class="chip" data-ar="0.5625">9:16</button>
-        <button class="chip" data-ar="0.5625" data-fit="1">9:16 fit</button>
+      <span class="label">shape</span>
+      <div class="seg" id="aspect-row" role="group" aria-label="Frame shape">
+        <button data-ar="0">full</button>
+        <button data-ar="0.8">4:5</button>
+        <button data-ar="1">1:1</button>
+        <button data-ar="0.5625">9:16</button>
+        <button data-ar="0.5625" data-fit="1">9:16 fit</button>
       </div>
       <p class="hint" id="ar-note">Full matches your phone's camera exactly — no crop.</p>
       <p class="hint" id="cam-info" style="opacity:.75"></p>
     </div>
 
     <div class="group">
-      <span class="label">Ghost</span>
+      <span class="label">ghost</span>
       <div class="slider-row">
         <span class="val" style="text-align:left">Fade</span>
         <input type="range" id="opacity" min="0" max="100" value="45" aria-label="Ghost opacity">
@@ -355,39 +431,41 @@
         <span class="val" id="zoom-val">100%</span>
       </div>
       <div class="chips-row">
-        <button class="chip" id="reset-ghost">Reset fit</button>
-        <button class="chip" id="flip-ghost">Flip ghost</button>
-        <button class="chip" id="clear-ghost">Clear</button>
+        <button class="act" id="reset-ghost">reset fit</button>
+        <button class="act" id="flip-ghost">flip ghost</button>
+        <button class="act" id="clear-ghost">clear</button>
       </div>
       <p class="hint">Drag the ghost on the camera to move it. Pinch or scroll to resize.</p>
     </div>
 
     <div class="group" id="frame-group">
-      <span class="label">Frame</span>
+      <span class="label">digicam</span>
       <div class="chips-row">
-        <button class="chip" id="framed">Digicam frame</button>
-        <button class="chip on" id="fr-vert">Vertical</button>
-        <button class="chip" id="fr-horiz">Horizontal</button>
+        <button class="toggle" id="framed">digicam frame</button>
+        <div class="seg" role="group" aria-label="Digicam orientation">
+          <button class="on" id="fr-vert">vertical</button>
+          <button id="fr-horiz">horizontal</button>
+        </div>
       </div>
       <p class="hint" id="frame-note">Digicam upright; the window is 3:4, the same shape as a phone
         front camera. Composited at capture only, so the live preview stays full size.</p>
     </div>
 
     <div class="group">
-      <span class="label">Camera</span>
+      <span class="label">camera</span>
       <div class="chips-row">
-        <button class="chip on" id="mirror">Mirror</button>
-        <button class="chip on" id="screenflash">Screen flash</button>
+        <button class="toggle on" id="mirror">mirror</button>
+        <button class="toggle on" id="screenflash">screen flash</button>
       </div>
       <p class="hint">Phones have no front LED — screen flash lights you with the display instead.</p>
     </div>
 
     <div class="group" id="shots-group" hidden>
-      <span class="label">This session</span>
+      <span class="label">this session</span>
       <div class="chips-row">
-        <button class="chip" id="strip-mode">Make photostrip</button>
-        <button class="chip" id="strip-go" hidden disabled>Pick 3</button>
-        <button class="chip" id="strip-cancel" hidden>Cancel</button>
+        <button class="act" id="strip-mode">make photostrip</button>
+        <button class="act primary" id="strip-go" hidden disabled>pick 3</button>
+        <button class="act" id="strip-cancel" hidden>cancel</button>
       </div>
       <div class="shots" id="shots"></div>
       <p class="hint" id="strip-hint" hidden>Tap three shots in the order you want them, top to bottom.</p>
@@ -400,8 +478,8 @@
 <div class="strip-edit" id="strip-edit">
   <div class="compare-head">
     <h2>Drag a photo to reposition it · scroll or pinch to zoom</h2>
-    <button class="btn" id="strip-save">Save to gallery</button>
-    <button class="btn" id="strip-close">Cancel</button>
+    <button class="act primary" id="strip-save">save to gallery</button>
+    <button class="act" id="strip-close">cancel</button>
   </div>
   <div class="strip-holder"><canvas id="strip-canvas"></canvas></div>
 </div>
@@ -409,9 +487,9 @@
 <div class="compare" id="compare">
   <div class="compare-head">
     <h2>How close did you get?</h2>
-    <button class="btn" id="stack-btn">Superimpose</button>
-    <button class="btn" id="download">Download</button>
-    <button class="btn" id="retake">Back</button>
+    <button class="toggle" id="stack-btn">superimpose</button>
+    <button class="act primary" id="download">download</button>
+    <button class="act" id="retake">back</button>
   </div>
   <div class="compare-body">
     <div class="pane side"><span class="cap">Inspo</span><div class="holder"><img id="cmp-inspo" alt="Inspo"></div></div>
@@ -844,8 +922,7 @@
   function updateStripBtn() {
     const n = stripSel.length;
     $('strip-go').disabled = n !== 3;
-    $('strip-go').textContent = n === 3 ? 'Make strip' : `Pick 3 (${n}/3)`;
-    $('strip-go').classList.toggle('on', n === 3);
+    $('strip-go').textContent = n === 3 ? 'make strip' : `pick 3 (${n}/3)`;
   }
 
   function togglePick(i) {
@@ -1051,7 +1128,7 @@
   const DELAYS = [0, 3, 10];
   $('timer').addEventListener('click', () => {
     delay = DELAYS[(DELAYS.indexOf(delay) + 1) % DELAYS.length];
-    $('timer').textContent = delay ? `Timer ${delay}s` : 'Timer off';
+    $('timer').textContent = delay ? `timer ${delay}s` : 'timer off';
     $('timer').classList.toggle('on', delay > 0);
   });
 
@@ -1073,7 +1150,7 @@
     requestAnimationFrame(updateArNote);   // after the stage box has resized
   }
 
-  $('aspect-row').addEventListener('click', e => applyFrame(e.target.closest('.chip')));
+  $('aspect-row').addEventListener('click', e => applyFrame(e.target.closest('button')));
 
   // Phones get the tall story frame; laptops get the webcam's own shape, which
   // is landscape and would be badly cropped by a 9:16 window. Coarse pointer
