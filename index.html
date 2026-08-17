@@ -120,7 +120,7 @@
   .countdown {
     position: absolute; inset: 0; display: none;
     align-items: center; justify-content: center;
-    font: 800 clamp(80px, 28vmin, 220px)/1 inherit;
+    font: 800 clamp(80px, 28vmin, 220px)/1 var(--mono);
     color: #fff; text-shadow: 0 6px 40px rgba(0,0,0,.6); pointer-events: none;
   }
   .countdown.on { display: flex; }
@@ -198,16 +198,17 @@
 
   .chip {
     display: inline-flex; align-items: center; justify-content: center;
-    min-height: 36px; padding: 0 14px;
-    font: 650 12.5px/1 inherit;
+    min-height: 34px; padding: 0 13px;
+    font: 500 11px/1 var(--mono);
+    letter-spacing: .09em; text-transform: uppercase;
     color: var(--text);
     background: rgba(0, 0, 0, .5);
     -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,.16);
-    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 3px;
     cursor: pointer; white-space: nowrap;
   }
-  .chip.on { background: var(--accent); border-color: var(--accent); color: #0b0b0d; }
+  .chip.on { background: var(--silver); border-color: var(--silver); color: #0b0b0d; }
 
   /* iOS puts the shutter in a band at the bottom; this sits in the same place. */
   .cam-bar {
@@ -237,8 +238,8 @@
 
   .addbtn, .switch {
     width: 50px; height: 50px; flex: 0 0 auto;
-    border-radius: 13px;
-    border: 1.5px dashed rgba(255,255,255,.4);
+    border-radius: 4px;
+    border: 1px dashed rgba(255,255,255,.38);
     background: rgba(255,255,255,.1);
     color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 0;
   }
@@ -252,7 +253,7 @@
     bottom: calc(env(safe-area-inset-bottom) + 6px);
     text-align: center;
     color: rgba(255,255,255,.75);
-    font: 650 10px/1 inherit;
+    font: 650 10px/1 var(--mono);
     letter-spacing: .16em; text-transform: uppercase;
     text-decoration: none;
     z-index: 5;
@@ -295,90 +296,93 @@
      "on or off" and "do a thing" identically is what made the panel read as
      generic — the buttons said nothing about how they behave. */
 
-  /* SEGMENTED — mutually exclusive. One container, hairline dividers, so the
-     group reads as a single choice before a word is read. */
+  /* SEGMENTED — mutually exclusive. A camera menu strip: square, divided,
+     with the active item inverted rather than tinted. */
   .seg {
     display: inline-flex;
     max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 3px;
-    background: rgba(255, 255, 255, .055);
-    border: 1px solid rgba(255, 255, 255, .10);
-    border-radius: 999px;
+    padding: 2px;
+    background: #131316;
+    border: 1px solid #33333a;
+    border-radius: 3px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
   }
+  .seg::-webkit-scrollbar { display: none; }
   .seg button {
     position: relative;
     appearance: none; -webkit-appearance: none;
     border: 0; background: transparent;
-    color: rgba(255, 255, 255, .58);
-    font: 400 13px/1 inherit;      /* lowercase, regular — not shouty */
-    padding: 10px 15px;
-    border-radius: 999px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: color .15s ease, background .15s ease;
+    color: #93939b;
+    font: 500 11px/1 var(--mono);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    padding: 10px 13px;
+    border-radius: 2px;
+    cursor: pointer; white-space: nowrap;
+    transition: color .12s ease, background .12s ease;
   }
-  .seg::-webkit-scrollbar { display: none; }
-  .seg button:hover { color: rgba(255, 255, 255, .85); }
+  .seg button:hover { color: #e6e6ea; }
   .seg button + button::before {
     content: '';
-    position: absolute; left: 0; top: 24%; bottom: 24%;
-    width: 1px; background: rgba(255, 255, 255, .11);
-    transition: opacity .15s ease;
+    position: absolute; left: 0; top: 26%; bottom: 26%;
+    width: 1px; background: #2e2e34;
+    transition: opacity .12s ease;
   }
-  /* Selection is a lift within the group, not a colour swap. */
   .seg button.on {
-    background: rgba(255, 255, 255, .15);
-    color: #fff;
+    background: var(--silver);
+    color: #0b0b0d;
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.28);
   }
   .seg button.on::before, .seg button.on + button::before { opacity: 0; }
 
-  /* TOGGLE — independent on/off. Solid when on, so it is unmistakably a state. */
+  /* TOGGLE — a physical button with a lit state. Bevelled: light top edge,
+     dark bottom edge, so it reads as a raised key rather than a flat swatch. */
+  .toggle, .act {
+    appearance: none; -webkit-appearance: none;
+    font: 500 11px/1 var(--mono);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    padding: 11px 14px;
+    border-radius: 3px;
+    cursor: pointer; white-space: nowrap;
+    transition: background .12s ease, color .12s ease, border-color .12s ease;
+  }
   .toggle {
-    appearance: none; -webkit-appearance: none;
-    padding: 10px 17px;
-    font: 400 13px/1 inherit;
-    color: rgba(255, 255, 255, .62);
-    background: rgba(255, 255, 255, .055);
-    border: 1px solid rgba(255, 255, 255, .12);
-    border-radius: 999px;
-    cursor: pointer; white-space: nowrap;
-    transition: background .15s ease, color .15s ease, border-color .15s ease;
+    color: #93939b;
+    background: linear-gradient(#1b1b1f, #131316);
+    border: 1px solid #33333a;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 1px 0 rgba(0,0,0,.7);
   }
-  .toggle:hover { color: rgba(255, 255, 255, .9); background: rgba(255, 255, 255, .09); }
+  .toggle:hover { color: #e6e6ea; border-color: #45454e; }
   .toggle.on {
-    background: rgba(255, 255, 255, .93);
-    border-color: transparent;
-    color: #14161c;
-  }
-  .toggle:disabled { opacity: .35; cursor: not-allowed; }
-  .toggle:disabled:hover { background: rgba(255, 255, 255, .055); color: rgba(255,255,255,.62); }
-
-  /* ACTION — does something. Quietest of the three; no fill until hovered. */
-  .act {
-    appearance: none; -webkit-appearance: none;
-    padding: 10px 17px;
-    font: 400 13px/1 inherit;
-    color: rgba(255, 255, 255, .62);
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, .13);
-    border-radius: 999px;
-    cursor: pointer; white-space: nowrap;
-    transition: background .15s ease, color .15s ease;
-  }
-  .act:hover:not(:disabled) { background: rgba(255, 255, 255, .08); color: #fff; }
-  .act:disabled { opacity: .35; cursor: not-allowed; }
-  /* Exactly one saturated control at a time, like the reference's shutter. */
-  .act.primary {
-    background: var(--accent);
-    border-color: transparent;
+    background: linear-gradient(#dcdce2, #b4b4be);
+    border-color: #c6c6ce;
     color: #0b0b0d;
-    font-weight: 600;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 1px 0 rgba(0,0,0,.7);
   }
-  .act.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.06); }
+  .toggle:disabled { opacity: .32; cursor: not-allowed; }
+  .toggle:disabled:hover { color: #93939b; border-color: #33333a; }
 
-  .seg button:active, .toggle:active, .act:active { transform: translateY(1px); }
+  /* ACTION — flat plate, no fill until pressed. */
+  .act {
+    color: #93939b;
+    background: transparent;
+    border: 1px solid #33333a;
+  }
+  .act:hover:not(:disabled) { background: #17171b; color: #e6e6ea; border-color: #45454e; }
+  .act:disabled { opacity: .32; cursor: not-allowed; }
+  .act.primary {
+    background: linear-gradient(#dcdce2, #b4b4be);
+    border-color: #c6c6ce;
+    color: #0b0b0d;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 1px 0 rgba(0,0,0,.7);
+  }
+  .act.primary:hover:not(:disabled) { filter: brightness(1.05); }
+
+  .toggle:active, .act:active { transform: translateY(1px); box-shadow: none; }
+  .seg button:active { transform: translateY(1px); }
 
   .slider-row { display: flex; align-items: center; gap: 12px; }
   .slider-row .val { color: var(--muted); font-size: 12px; min-width: 42px; text-align: right;
@@ -419,17 +423,6 @@
 
   .hint { color: var(--muted); font-size: 11.5px; margin: 0; }
 
-  /* selection badges on the session thumbnails */
-  .shots .cell { position: relative; }
-  .shots .cell .badge {
-    position: absolute; top: 4px; left: 4px;
-    width: 21px; height: 21px; border-radius: 50%;
-    background: var(--accent); color: #0b0b0d;
-    font: 800 11px/21px inherit; text-align: center;
-    display: none;
-  }
-  .shots .cell.picked .badge { display: block; }
-  .shots .cell.picked img { outline: 2px solid var(--accent); outline-offset: -2px; }
   .shots.selecting img { cursor: pointer; }
 
   /* strip editor */

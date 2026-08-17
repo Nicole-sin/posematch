@@ -161,17 +161,20 @@ point at one. Grain sits over everything at 5%.
 Three kinds of control, three appearances — the panel used to render all three identically,
 which is what made it read as generic:
 
-- **Segmented** (`.seg`) for mutually exclusive choices — frame shape, digicam orientation. One
-  container with hairline dividers, so the group reads as a single choice before a word of it is
-  read. Selection is a lift within the group rather than a colour swap.
+- **Segmented** (`.seg`) for mutually exclusive choices — frame shape, digicam orientation. A
+  camera menu strip: square, divided, with the active item **inverted** rather than tinted.
 - **Toggle** (`.toggle`) for independent on/off — mirror, screen flash, digicam frame,
-  superimpose. Solid when on, so the state is unmistakable.
-- **Action** (`.act`) for things that do something. Quietest of the three, no fill until hover.
-  Exactly one `.primary` is saturated at a time.
+  superimpose. A bevelled key: light top edge, dark bottom edge, lit silver when on.
+- **Action** (`.act`) for things that do something. Flat plate, no fill until pressed. Exactly
+  one `.primary` is lit at a time.
 
-Labels are lowercase at regular weight with no tracking, and section captions are quiet rather
-than tracked caps. The only saturated element on a screen should be the thing you are meant to
-press next.
+All of them are uppercase monospace with wide tracking, 3px corners, and a real 1px travel on
+press that collapses the shadow — compact-camera menu furniture rather than web buttons.
+
+Note for anyone editing the CSS: `font: 600 13px/1 inherit` is **invalid**. A CSS-wide keyword is
+not a legal family name inside the `font` shorthand, so the whole declaration is dropped and the
+element silently falls back to the UA font. Every button in the app was doing this. Use
+`var(--mono)` explicitly.
 
 ## Known limits
 
