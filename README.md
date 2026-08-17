@@ -35,7 +35,9 @@ scroll down.
 2. Drag the ghost to position it. Use the **Zoom** slider (or pinch, or scroll) to size it to
    your framing, and **Flip ghost** to mirror it.
 3. Set the ghost opacity (45% is a good default).
-4. Pick a frame — **9:16 fit** (default), **Full**, **4:5**, **1:1** or plain **9:16**.
+4. Pick a frame. The default depends on the device: **phones start on 9:16 fit** (tall, story
+   shaped) and **laptops start on Full** (the webcam's own shape, which is landscape and would be
+   badly cropped by a tall window). The other options are **4:5**, **1:1** and plain **9:16**.
    Only plain 9:16 is narrower than the sensor, so it is the only one that trims width and the
    only one that looks zoomed; **9:16 fit** gives the same story-shaped file by padding with
    black bars instead. The settings panel reports the live sensor size and exactly how much

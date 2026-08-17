@@ -336,7 +336,7 @@
         <button class="chip" data-ar="0.8">4:5</button>
         <button class="chip" data-ar="1">1:1</button>
         <button class="chip" data-ar="0.5625">9:16</button>
-        <button class="chip on" data-ar="0.5625" data-fit="1">9:16 fit</button>
+        <button class="chip" data-ar="0.5625" data-fit="1">9:16 fit</button>
       </div>
       <p class="hint" id="ar-note">Full matches your phone's camera exactly — no crop.</p>
       <p class="hint" id="cam-info" style="opacity:.75"></p>
@@ -443,8 +443,10 @@
   let videoAspect = 3 / 4;
   // Default: 9:16 letterboxed — a story-shaped file with the camera's full
   // field of view, so nothing is cropped and nothing looks zoomed.
-  let targetAspect = 9 / 16;
-  let fitMode = true;             // true = letterbox the frame instead of cropping it
+  // Set at startup by pickDefaultFrame(): phones start on a tall story frame,
+  // laptops on the webcam's own shape.
+  let targetAspect = 0;
+  let fitMode = false;            // true = letterbox the frame instead of cropping it
   let framed = false;             // composite into the digicam frame at capture
 
   // Window position measured from the artwork, as fractions so it survives any
@@ -1044,7 +1046,6 @@
   $('fr-vert').addEventListener('click', () => setFrameOrient(false));
   $('fr-horiz').addEventListener('click', () => setFrameOrient(true));
   video.classList.add('mirrored');
-  video.classList.add('fit');     // matches the default 9:16 fit frame
 
   // Timer cycles off -> 3 -> 10, the way the iOS control does.
   const DELAYS = [0, 3, 10];
@@ -1062,8 +1063,7 @@
     startCamera();
   });
 
-  $('aspect-row').addEventListener('click', e => {
-    const b = e.target.closest('.chip');
+  function applyFrame(b) {
     if (!b) return;
     targetAspect = parseFloat(b.dataset.ar) || 0;
     fitMode = b.dataset.fit === '1';
@@ -1071,7 +1071,19 @@
     [...$('aspect-row').children].forEach(c => c.classList.toggle('on', c === b));
     layoutStage();
     requestAnimationFrame(updateArNote);   // after the stage box has resized
-  });
+  }
+
+  $('aspect-row').addEventListener('click', e => applyFrame(e.target.closest('.chip')));
+
+  // Phones get the tall story frame; laptops get the webcam's own shape, which
+  // is landscape and would be badly cropped by a 9:16 window. Coarse pointer
+  // catches tablets too, which want the tall frame for the same reason phones do.
+  function pickDefaultFrame() {
+    const phone = matchMedia('(pointer: coarse)').matches
+               || matchMedia('(max-width: 900px)').matches;
+    const want = phone ? '[data-fit="1"]' : '[data-ar="0"]';
+    applyFrame($('aspect-row').querySelector(want));
+  }
 
   $('strip-mode').addEventListener('click', () => setSelecting(true));
   $('strip-cancel').addEventListener('click', () => setSelecting(false));
@@ -1171,6 +1183,7 @@
   window.addEventListener('orientationchange', relayout);
   video.addEventListener('loadedmetadata', readVideoAspect);
 
+  pickDefaultFrame();
   layoutStage();
   startCamera();
 
