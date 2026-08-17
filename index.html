@@ -300,6 +300,9 @@
      with the active item inverted rather than tinted. */
   .seg {
     display: inline-flex;
+    /* .group is a column flex container, so a child stretches to full width by
+       default no matter that this is inline-flex. Shrink to the labels. */
+    align-self: flex-start;
     max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
