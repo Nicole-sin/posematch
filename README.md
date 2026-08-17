@@ -146,8 +146,9 @@ lock. Nothing else on the page is saturated.
 
 Camera furniture rather than retro filters — focus brackets in the viewfinder corners, a live
 date stamp, frame counter, battery, exposure readout, and sequential filenames (`IMG_0043.JPG`)
-that follow each shot through the contact sheet, the compare view and the download. UI copy is a
-clean sans; every number and label a camera would print is monospace.
+that follow each shot through the contact sheet, the compare view and the download. The whole
+interface is set in monospace — not just the camera metadata — which pushes it further toward a
+camera menu and away from a website.
 
 Capture is a mirror slap (a black beat, which is what actually reads as a shutter) then the
 flash, with the focus brackets snapping green. Frames arrive over-exposed and blurred and settle
