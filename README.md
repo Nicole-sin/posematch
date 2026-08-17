@@ -138,6 +138,23 @@ The three slot holes are punched as an **exact pixel mask**, not rectangles. The
 (measured at about -7 degrees by a min-area-rect fit) only decide each photo's framing and tilt,
 so small errors there are invisible — the artwork masks the edges regardless.
 
+## Look
+
+2000s compact-camera photobooth. Black, white and silver, with colour used only where a camera
+uses it: **red** for the record dot, **amber** for the burned-in date stamp, **green** for focus
+lock. Nothing else on the page is saturated.
+
+Camera furniture rather than retro filters — focus brackets in the viewfinder corners, a live
+date stamp, frame counter, battery, exposure readout, and sequential filenames (`IMG_0043.JPG`)
+that follow each shot through the contact sheet, the compare view and the download. UI copy is a
+clean sans; every number and label a camera would print is monospace.
+
+Capture is a mirror slap (a black beat, which is what actually reads as a shutter) then the
+flash, with the focus brackets snapping green. Frames arrive over-exposed and blurred and settle
+over ~0.8s, the way a photo develops. The session gallery is a contact sheet: frames sit slightly
+off-square the way prints do in a sleeve, straighten on hover, and draw a focus box when you
+point at one. Grain sits over everything at 5%.
+
 ## Controls
 
 Three kinds of control, three appearances — the panel used to render all three identically,
