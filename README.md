@@ -71,43 +71,58 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
   bar; log-mapped it lands dead centre and zooming in and out are mirror images. The slider,
   pinch and scroll all drive one value and stay in sync.
 
-## Digicam frame
+## Digicam frames
 
-A **Digicam frame** toggle in the settings panel, on phone and desktop alike. It composites the
-shot into the pink Canon artwork at capture time only — the live preview stays full size, because
-shrinking it to the frame's window would undo the whole point of matching your outline at real
-scale.
+Three of them: a pink Canon, a silver Canon with a lucky-star charm, and a pink Sony with Hello
+Kitty. They appear in the gallery as a row of thumbnails, and hovering one previews it over your
+photo before you commit.
 
-The artwork is 9:16 overall with a **3:4 window**, which happens to be exactly the front camera's
-shape, so the photo drops in with **no crop and no zoom** — the frame supplies the story shape
-that a 9:16 crop would otherwise have to carve out of your field of view. Because of that, the
-framed capture ignores the frame-shape chips and always uses the window's own 3:4.
+A **frame as you shoot** toggle also composites the shot into the first frame at capture time. The
+live preview stays full size either way, because shrinking it to the frame's window would undo the
+whole point of matching your outline at real scale.
 
-**Vertical / Horizontal** turns the digicam 90 degrees. The window turns with it, so the shape
-of the hole follows the shape of the photo:
+The photo goes BEHIND the artwork and shows through a transparent window punched in the PNG, so
+the hole's own shape decides the output and the frame-shape chips do not apply.
 
-| | output | window | keeps of a 16:9 webcam |
-|---|---|---|---|
-| Vertical | 1081x1920 | 458x613 (3:4) | 42% |
-| Horizontal | 1920x1081 | 613x458 (4:3) | 75% |
+### Orientation
 
-A phone's 3:4 front camera fills either window with no loss of width — vertical is an exact
-match for it, horizontal simply trims top and bottom.
+The frame turns itself. All three cameras have landscape screens, so a landscape photo drops
+straight in, and a portrait photo turns the camera 90 degrees — which is what you physically do
+with a digicam to shoot portrait. A square photo leaves the frame upright.
 
-Horizontal suits a laptop, whose webcam is landscape — an upright window has to discard well over
-half its width to fill a 3:4 hole. It also reads more naturally, since the artwork is a landscape
-camera that was photographed turned upright; rotating it back puts the Canon branding the right
-way up. The photo inside stays upright either way.
+There is nothing to set. `composeFrame` compares the frame's own window to the photo:
 
-The long side is capped at 1920 rather than the width, or the rotated frame would come out
-smaller than the upright one and lose window resolution. The artwork is only 474px natively and
-softens past ~2.3x, which is what sets that cap.
+```js
+const winHoriz = (WIN.x1 - WIN.x0) * upW > (WIN.y1 - WIN.y0) * upH;
+const frameHoriz = sw !== sh && (sw > sh) !== winHoriz;
+```
 
-`frame.png` was cut from a JPEG by flood-filling white **inward from the border** rather than
-keying all white — the artwork contains 104 enclosed white regions (the window, the I-HEART-YOU
-sticker, metal highlights) that a global key would have punched holes through. The alpha is
-eroded 1px to kill the halo left by JPEG edge blending, and the compositor draws the photo 2px
-oversized so it tucks under that edge instead of leaving a gap.
+This has to compare the two rather than just asking "is the photo landscape". `digicam1.png` was
+originally stored on its side, giving it a portrait window while the others were landscape; a rule
+written around one of those shapes silently mis-rotates the other.
+
+The long side is capped at 1920 rather than the width, or a turned frame would come out smaller
+than an upright one and lose window resolution. The artwork is 782-952px natively and softens past
+about 2.3x, which is what sets that cap.
+
+### How the artwork was cut
+
+Backgrounds come off by flood-filling **inward from the border**, never by keying a colour
+globally: the artwork contains enclosed regions the same colour as the background — the window
+itself, the I-HEART-YOU sticker, metal highlights — that a global key would punch holes through.
+
+Two frames needed opposite handling, and connectivity is what reconciles them:
+
+- The silver Canon's screen is the same 247 grey as its background, so no brightness test can find
+  it. Being unreachable from the edge is what identifies it.
+- The pink Sony's bow is `(123,112,115)` against a `128` grey. A tolerance loose enough to clear
+  the anti-aliased rim ate the bow, Hello Kitty and the charm — so the core fill is tight and a
+  two-pixel feather under a looser rule cleans the rim afterwards.
+
+The window is then the largest enclosed blob, picking between colour rules by **rectangularity**,
+since a screen is a rectangle and that is the reliable discriminator. Alpha is eroded 1px to kill
+the halo left by JPEG edge blending, and the compositor draws the photo 2px oversized so it tucks
+under that edge instead of leaving a gap.
 
 ### After the fact
 
@@ -197,6 +212,6 @@ element silently falls back to the UA font. Every button in the app was doing th
 - Needs https or localhost. Browser security rule, no way around it.
 - Shots live in memory for the session only — download the ones you want to keep.
 - The ghost can be moved, scaled and flipped, but not rotated.
-- The digicam frame's resolution is limited by the source artwork (474px natively).
-- `frame.png` (228KB) and `photostrip.png` (220KB) both load on every visit, used or not.
+- Frame resolution is limited by the source artwork (782-952px natively).
+- All four frame PNGs (~1MB together) load on every visit, used or not.
 - The photostrip slots are ~184x124 in the source art, so they cap how sharp each photo can be.

@@ -117,7 +117,7 @@ globalThis.__seen = seen;
 const ctx = vm.createContext(guard);
 
 
-const ART_DIMS = { dg1: [474, 842], dg2: [782, 501], dg3: [952, 652], st1: [1640, 2048] };
+const ART_DIMS = { dg1: [842, 474], dg2: [782, 501], dg3: [952, 652], st1: [1640, 2048] };
 const DRIVER = `
 const ART_DIMS = ${JSON.stringify(ART_DIMS)};
 const WIN_ORIENT = {};
