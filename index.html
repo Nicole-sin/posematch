@@ -45,7 +45,6 @@
   .meta {
     font: 500 10.5px/1 var(--mono);
     letter-spacing: .1em;
-    text-transform: uppercase;
     color: var(--silver);
   }
 
@@ -92,7 +91,6 @@
     display: inline-flex; align-items: center;
     font: 500 12px/1 var(--mono);
     letter-spacing: .22em;
-    text-transform: uppercase;
     color: var(--muted);
     transition: color .2s ease;
   }
@@ -244,7 +242,7 @@
     display: inline-flex; align-items: center; justify-content: center;
     min-height: 34px; padding: 0 13px;
     font: 500 11px/1 var(--mono);
-    letter-spacing: .09em; text-transform: uppercase;
+    letter-spacing: .09em;
     color: var(--text);
     background: rgba(0, 0, 0, .5);
     -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
@@ -298,7 +296,7 @@
     text-align: center;
     color: rgba(255,255,255,.75);
     font: 650 10px/1 var(--mono);
-    letter-spacing: .16em; text-transform: uppercase;
+    letter-spacing: .16em;
     text-decoration: none;
     z-index: 5;
   }
@@ -364,7 +362,6 @@
     color: #93939b;
     font: 500 11px/1 var(--mono);
     letter-spacing: .09em;
-    text-transform: uppercase;
     padding: 10px 13px;
     border-radius: 2px;
     cursor: pointer; white-space: nowrap;
@@ -390,7 +387,6 @@
     appearance: none; -webkit-appearance: none;
     font: 500 11px/1 var(--mono);
     letter-spacing: .09em;
-    text-transform: uppercase;
     padding: 11px 14px;
     border-radius: 3px;
     cursor: pointer; white-space: nowrap;
@@ -502,7 +498,7 @@
   /* flex:1 1 0 + min-width:0 — these hold only max-width-constrained images, so
      a content-based basis would collapse them to nothing. */
   .pane { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-  .pane .cap { font: 500 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  .pane .cap { font: 500 10px/1 var(--mono); letter-spacing: .1em;
                color: var(--muted); text-align: center; }
   .pane .holder { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
   .pane img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; margin: auto; display: block; }
@@ -549,11 +545,11 @@
       <div class="vf-top">
         <span class="rec" id="rec"><i class="dot"></i><span class="meta">rec</span></span>
         <span class="vf-spacer"></span>
-        <span class="meta" id="counter">IMG_0001</span>
+        <span class="meta" id="counter">img_0001</span>
         <span class="batt"><b></b></span>
       </div>
       <div class="vf-bottom">
-        <span class="meta" id="expo">f/2.8 · 1/60 · ISO 400</span>
+        <span class="meta" id="expo">f/2.8 · 1/60 · iso 400</span>
         <span class="stamp" id="stamp"></span>
       </div>
     </div>
@@ -570,10 +566,10 @@
       <button class="switch" id="flip" aria-label="Switch camera">⟲</button>
     </div>
 
-    <a class="scroll-hint" href="#settings">Settings ↓</a>
+    <a class="scroll-hint" href="#settings">settings ↓</a>
 
     <div class="stage-msg on" id="msg">
-      <h2 id="msg-title">Starting camera…</h2>
+      <h2 id="msg-title">starting camera…</h2>
       <p id="msg-body"></p>
       <div id="msg-extra"></div>
       <button class="act" id="retry" hidden>try again</button>
@@ -598,12 +594,12 @@
     <div class="group">
       <span class="label">ghost</span>
       <div class="slider-row">
-        <span class="val" style="text-align:left">Fade</span>
+        <span class="val" style="text-align:left">fade</span>
         <input type="range" id="opacity" min="0" max="100" value="45" aria-label="Ghost opacity">
         <span class="val" id="op-val">45%</span>
       </div>
       <div class="slider-row">
-        <span class="val" style="text-align:left">Zoom</span>
+        <span class="val" style="text-align:left">zoom</span>
         <input type="range" id="zoom" min="0" max="100" value="50" aria-label="Ghost zoom">
         <span class="val" id="zoom-val">100%</span>
       </div>
@@ -641,7 +637,7 @@
         <button class="act" id="strip-cancel" hidden>cancel</button>
       </div>
       <div class="shots" id="shots"></div>
-      <p class="hint" id="strip-hint" hidden>Tap three shots in the order you want them, top to bottom.</p>
+      <p class="hint" id="strip-hint" hidden>tap three shots in the order you want them, top to bottom.</p>
     </div>
 
     <input type="file" id="file" accept="image/*" hidden>
@@ -650,7 +646,7 @@
 
 <div class="strip-edit" id="strip-edit">
   <div class="compare-head">
-    <h2>Drag a photo to reposition it · scroll or pinch to zoom</h2>
+    <h2>drag a photo to reposition it · scroll or pinch to zoom</h2>
     <button class="act primary" id="strip-save">save to gallery</button>
     <button class="act" id="strip-close">cancel</button>
   </div>
@@ -659,8 +655,7 @@
 
 <div class="compare" id="compare">
   <div class="compare-head">
-    <h2>How close did you get?</h2>
-    <button class="toggle" id="stack-btn">superimpose</button>
+    <button class="toggle" id="stack-btn">compare</button>
     <button class="act primary" id="download">download</button>
     <button class="act" id="retake">back</button>
   </div>
@@ -692,7 +687,7 @@
   let facing = 'user';
   let ghostURL = null, shotURL = null;
   let shots = [];
-  let shotSeq = 0;                // frame numbers on the card: IMG_0001.JPG
+  let shotSeq = 0;                // frame numbers on the card: img_0001.jpg
   let counting = false, delay = 0;
   let videoAspect = 3 / 4;
   // Default: 9:16 letterboxed — a story-shaped file with the camera's full
@@ -746,7 +741,7 @@
   // ---------- viewfinder readouts ----------
 
   function updateVF() {
-    $('counter').textContent = 'IMG_' + String(shotSeq + 1).padStart(4, '0');
+    $('counter').textContent = 'img_' + String(shotSeq + 1).padStart(4, '0');
     // The self-timer is the one time a compact camera shows a blinking record dot.
     $('rec').classList.toggle('on', delay > 0);
   }
@@ -772,14 +767,14 @@
 
   async function startCamera() {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      showMsg('Camera needs https or localhost',
-        'Browsers block the camera on file:// pages. Serve the folder and reload:',
+      showMsg('camera needs https or localhost',
+        'browsers block the camera on file:// pages. serve the folder and reload:',
         '<code>python3 -m http.server 8000</code>');
       return;
     }
 
     stopCamera();
-    showMsg('Starting camera…', 'Allow camera access when your browser asks.');
+    showMsg('starting camera…', 'allow camera access when your browser asks.');
 
     // Only the LONG axis is constrained. Asking for 1080x1920 pins a 9:16 shape,
     // which makes the browser crop the sensor before we ever see the frame —
@@ -796,13 +791,13 @@
     } catch (err) {
       const n = err && err.name;
       if (n === 'NotAllowedError' || n === 'SecurityError')
-        showMsg('Camera permission denied', 'Allow camera access for this page, then tap below.', '', true);
+        showMsg('camera permission denied', 'allow camera access for this page, then tap below.', '', true);
       else if (n === 'NotFoundError' || n === 'OverconstrainedError')
-        showMsg('No camera found', 'Nothing matched that request.', '', true);
+        showMsg('no camera found', 'nothing matched that request.', '', true);
       else if (n === 'NotReadableError')
-        showMsg('Camera is busy', 'Another app is using it. Close it, then tap below.', '', true);
+        showMsg('camera is busy', 'another app is using it. close it, then tap below.', '', true);
       else
-        showMsg('Could not start the camera', (err && err.message) || String(err), '', true);
+        showMsg('could not start the camera', (err && err.message) || String(err), '', true);
       return;
     }
 
@@ -1027,7 +1022,7 @@
     c.toBlob(blob => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
-      const name = 'IMG_' + String(++shotSeq).padStart(4, '0') + '.' + (png ? 'PNG' : 'JPG');
+      const name = 'img_' + String(++shotSeq).padStart(4, '0') + '.' + (png ? 'png' : 'jpg');
       shots.push({ url, blob, ext: png ? 'png' : 'jpg', name });
       shotURL = url;
       justShot = true;
@@ -1172,7 +1167,7 @@
       if (!blob) return;
       const url = URL.createObjectURL(blob);
       shots.push({ url, blob, ext: 'png',
-                   name: 'STRIP' + String(++shotSeq).padStart(3, '0') + '.PNG' });
+                   name: 'strip' + String(++shotSeq).padStart(3, '0') + '.png' });
       shotURL = url;
       $('strip-edit').classList.remove('on');
       setSelecting(false);
@@ -1185,7 +1180,7 @@
 
   function openCompare(url) {
     const shot = shots.find(s => s.url === url);
-    $('cmp-cap').textContent = (shot && shot.name) || 'FRAME';
+    $('cmp-cap').textContent = (shot && shot.name) || 'frame';
     $('cmp-shot').classList.remove('developing');
     void $('cmp-shot').offsetWidth;
     if (justShot) $('cmp-shot').classList.add('developing');
