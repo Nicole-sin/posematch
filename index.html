@@ -514,15 +514,31 @@
              color: var(--muted); text-align: center; }
   .latest-act { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  /* Frame pickers: the artwork itself is the button. */
-  .frame-opts { display: flex; gap: 10px; flex-wrap: wrap; }
+  /* Frame pickers: the artwork itself is the button, and every frame sits on one
+     rail so the whole set is comparable at a glance. The rail breaks out of the
+     panel's 620px column, and scrolls sideways when the screen is too narrow. */
+  .frame-rail {
+    margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
+    padding: 2px 18px 8px; overflow-x: auto; scrollbar-width: thin;
+  }
+  /* max-content + auto margins centres the set when it fits and still scrolls
+     from the start when it does not, which `justify-content: center` cannot do. */
+  .frame-rail-track { display: flex; gap: 34px; width: max-content; margin: 0 auto; }
+  .frame-group { display: flex; flex-direction: column; gap: 8px; }
+  .frame-group[hidden] { display: none; }
+  .sub {
+    font: 500 9px/1 var(--mono); letter-spacing: .14em; color: #6f6f78;
+  }
+  .frame-opts { display: flex; gap: 9px; }
   .frame-opt {
-    width: 78px; padding: 7px;
+    padding: 6px;
     background: #131316; border: 1px solid #33333a; border-radius: 3px;
     cursor: pointer; line-height: 0;
     transition: border-color .12s ease, background .12s ease, opacity .12s ease;
   }
-  .frame-opt img { width: 100%; height: auto; display: block; }
+  /* One height for every thumbnail, natural widths — so a wide digicam and a
+     tall photostrip read as the same kind of thing on the rail. */
+  .frame-opt img { height: 72px; width: auto; display: block; }
   .frame-opt:hover:not(:disabled) { border-color: #6a6a76; background: #17171b; }
   .frame-opt:disabled { opacity: .3; cursor: not-allowed; }
   .frame-opt .cap {
@@ -728,25 +744,30 @@
   </section>
 
   <section class="settings">
-    <div class="group frame-group" data-fam="digicam" hidden>
-      <span class="label">digicam frames</span>
-      <div class="frame-opts"></div>
-    </div>
-
-    <div class="group frame-group" data-fam="polaroid" hidden>
-      <span class="label">polaroid frames</span>
-      <div class="frame-opts"></div>
-    </div>
-
-    <div class="group frame-group" data-fam="strip" hidden>
-      <span class="label">photostrips</span>
-      <div class="frame-opts"></div>
+    <div class="group" id="frames-group" hidden>
+      <span class="label">frames</span>
+      <div class="frame-rail">
+        <div class="frame-rail-track">
+          <div class="frame-group" data-fam="digicam" hidden>
+            <span class="sub">digicam</span>
+            <div class="frame-opts"></div>
+          </div>
+          <div class="frame-group" data-fam="polaroid" hidden>
+            <span class="sub">polaroid</span>
+            <div class="frame-opts"></div>
+          </div>
+          <div class="frame-group" data-fam="strip" hidden>
+            <span class="sub">photostrip</span>
+            <div class="frame-opts"></div>
+          </div>
+        </div>
+      </div>
+      <p class="hint" id="sel-hint">tap a photo to select it. tap three, in order, for a strip.</p>
     </div>
 
     <div class="group" id="shots-group" hidden>
       <span class="label">all photos</span>
       <div class="shots" id="shots"></div>
-      <p class="hint" id="sel-hint">tap a photo to select it. tap three, in order, for a strip.</p>
     </div>
 
   </section>
@@ -821,7 +842,14 @@
       { id: 'dg3', src: 'digicam3.png', long: 1920,
         win: { x0: 0.1481, x1: 0.5914, y0: 0.3113, y1: 0.7868 } }    // landscape window
     ],
-    polaroid: [],
+    polaroid: [
+      { id: 'po1', src: 'polaroid1.png', long: 1400,
+        win: { x0: 0.0688, x1: 0.9214, y0: 0.0631, y1: 0.7882 } },
+      { id: 'po2', src: 'polaroid2.png', long: 1400,
+        win: { x0: 0.0855, x1: 0.9079, y0: 0.0849, y1: 0.8072 } },
+      { id: 'po3', src: 'polaroid3.png', long: 1400,
+        win: { x0: 0.0825, x1: 0.9150, y0: 0.0812, y1: 0.8073 } }
+    ],
     strip: [
       { id: 'st1', src: 'photostrip.png', long: 2048, slots: [
           { cx: 0.2457, cy: 0.2887, w: 0.2247, h: 0.1209, deg: -6.88 },
@@ -1306,6 +1334,7 @@
 
   // Builds the picker for each family and sets what is reachable right now.
   function renderFramePickers() {
+    $('frames-group').hidden = shots.length === 0;
     document.querySelectorAll('.frame-group').forEach(group => {
       const fam = group.dataset.fam;
       const defs = FRAMES[fam] || [];

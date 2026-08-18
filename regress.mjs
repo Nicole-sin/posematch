@@ -117,7 +117,7 @@ globalThis.__seen = seen;
 const ctx = vm.createContext(guard);
 
 
-const ART_DIMS = { dg1: [842, 474], dg2: [782, 501], dg3: [952, 652], st1: [1640, 2048] };
+const ART_DIMS = { dg1: [842, 474], dg2: [782, 501], dg3: [952, 652], po1: [407, 491], po2: [456, 695], po3: [412, 628], st1: [1640, 2048] };
 const DRIVER = `
 const ART_DIMS = ${JSON.stringify(ART_DIMS)};
 const WIN_ORIENT = {};
@@ -190,7 +190,7 @@ for (const fam of Object.keys(FRAMES)) for (const d of FRAMES[fam]) {
     step('--- frame orientation ---', '');
     const dim = c => (c.width > c.height ? 'horizontal' : c.width < c.height ? 'vertical' : 'square')
                      + ' ' + c.width + 'x' + c.height;
-    for (const d of FRAMES.digicam) {
+    for (const d of [...FRAMES.digicam, ...FRAMES.polaroid]) {
       step(d.id + ' (' + (WIN_ORIENT[d.id] || '?') + ' screen)', '');
       step('  portrait  photo ->', dim(composeFrame({}, 1200, 1600, false, 0, d)));
       step('  landscape photo ->', dim(composeFrame({}, 1600, 1200, false, 0, d)));

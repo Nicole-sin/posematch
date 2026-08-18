@@ -71,11 +71,18 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
   bar; log-mapped it lands dead centre and zooming in and out are mirror images. The slider,
   pinch and scroll all drive one value and stay in sync.
 
-## Digicam frames
+## Frames
 
-Three of them: a pink Canon, a silver Canon with a lucky-star charm, and a pink Sony with Hello
-Kitty. They appear in the gallery as a row of thumbnails, and hovering one previews it over your
-photo before you commit.
+Three digicams (a pink Canon, a silver Canon with a lucky-star charm, a pink Sony with Hello
+Kitty), three polaroids (red bows on dusty pink, blue gingham, lilac gingham) and the photostrip.
+
+They all sit on **one rail** in the gallery, grouped by family and set at a single thumbnail
+height so a wide digicam and a tall photostrip read as the same kind of thing. The rail breaks out
+of the settings column's 620px and scrolls sideways on a narrow screen; the track is
+`width: max-content` with auto margins, which centres the set when it fits and still scrolls from
+the start when it does not — something `justify-content: center` cannot do.
+
+Hovering a frame previews it over your photo before you commit.
 
 A **frame as you shoot** toggle also composites the shot into the first frame at capture time. The
 live preview stays full size either way, because shrinking it to the frame's window would undo the
@@ -115,6 +122,8 @@ Two frames needed opposite handling, and connectivity is what reconciles them:
 
 - The silver Canon's screen is the same 247 grey as its background, so no brightness test can find
   it. Being unreachable from the edge is what identifies it.
+- Two polaroids arrived with their windows already punched; the third was still a solid white
+  card. Same test either way: the largest enclosed blob, transparent or white.
 - The pink Sony's bow is `(123,112,115)` against a `128` grey. A tolerance loose enough to clear
   the anti-aliased rim ate the bow, Hello Kitty and the charm — so the core fill is tight and a
   two-pixel feather under a looser rule cleans the rim afterwards.
@@ -212,6 +221,6 @@ element silently falls back to the UA font. Every button in the app was doing th
 - Needs https or localhost. Browser security rule, no way around it.
 - Shots live in memory for the session only — download the ones you want to keep.
 - The ghost can be moved, scaled and flipped, but not rotated.
-- Frame resolution is limited by the source artwork (782-952px natively).
-- All four frame PNGs (~1MB together) load on every visit, used or not.
+- Frame resolution is limited by the source artwork (407-952px natively).
+- All seven frame PNGs (~1.4MB together) load on every visit, used or not.
 - The photostrip slots are ~184x124 in the source art, so they cap how sharp each photo can be.
