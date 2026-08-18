@@ -145,7 +145,7 @@ for (const fam of Object.keys(FRAMES)) for (const d of FRAMES[fam]) {
     step('  ref pane shown', !$('lp-ref').hidden);
     step('  ref src', $('lat-ref').src);
     step('  shot src', $('lat-shot').src);
-    step('  caption', $('lat-cap').textContent);
+    step('  hero is the new shot', $('lat-shot').src === shots[shots.length-1].url);
     step('new shot auto-selected', JSON.stringify(sel) + ' of ' + shots.length);
     step('frame is one tap away', selFramable(1));
     step('roll sits below', !$('shots-group').hidden);
@@ -187,7 +187,7 @@ for (const fam of Object.keys(FRAMES)) for (const d of FRAMES[fam]) {
     step('  newest shot', n ? n.name + ' / ' + n.kind : 'NONE');
     step('  editor closed', !$('strip-edit').classList.contains('on'));
     step('  selection cleared', sel.length === 0);
-    step('  strip is the hero', $('lat-cap').textContent === (n && n.name));
+    step('  strip is the hero', $('lat-shot').src === (n && n.url));
     step('  back in gallery', inGallery());
 
     // ---- the frame follows the photo's shape, with nothing to set ----
@@ -213,6 +213,15 @@ for (const fam of Object.keys(FRAMES)) for (const d of FRAMES[fam]) {
     hidePreview(); await sleep(200);
     step('preview hidden on leave', $('lp-pv').hidden);
 
+    // ---- text that was asked to go, and should stay gone ----
+    step('--- removed text ---', '');
+    step('no filename under the hero', !$('lat-cap'));
+    step('no "frames" heading', !$('frames-group').textContent.includes('frames'));
+    sel = [0]; renderFramePickers();
+    step('no frame prompt on 1 photo', $('sel-hint').hidden && $('sel-hint').textContent === '');
+    sel = []; renderFramePickers();
+    step('tap-to-select hint kept', !$('sel-hint').hidden && $('sel-hint').textContent.slice(0, 20));
+
     // ---- every registered frame shows up as an option ----
     step('--- pickers ---', '');
     renderFramePickers();
@@ -227,7 +236,7 @@ for (const fam of Object.keys(FRAMES)) for (const d of FRAMES[fam]) {
     sel = [0];
     finishGrab(document.createElement('canvas'), 'png', 'framed');
     await sleep(40);
-    step('framed shot is the hero', $('lat-cap').textContent);
+    step('framed shot is the hero', $('lat-shot').src === shots[shots.length-1].url);
     step('cannot be framed twice', selFramable(1) === false);
     step('still in gallery', inGallery());
   } catch (e) { out.fatal = e.constructor.name + ': ' + e.message + '\\n' + e.stack; }

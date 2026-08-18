@@ -733,7 +733,7 @@
           <img id="lat-shot" alt="The photo you just took">
           <div class="lp-pv" id="lp-pv" hidden></div>
         </div>
-        <figcaption class="cap" id="lat-cap">frame</figcaption>
+
       </figure>
     </div>
     <div class="latest-act">
@@ -745,7 +745,6 @@
 
   <section class="settings">
     <div class="group" id="frames-group" hidden>
-      <span class="label">frames</span>
       <div class="frame-rail">
         <div class="frame-rail-track">
           <div class="frame-group" data-fam="digicam" hidden>
@@ -943,7 +942,6 @@
     void img.offsetWidth;                    // restart the animation, do not queue it
     if (justShot) img.classList.add('developing');
     img.src = s.url;
-    $('lat-cap').textContent = s.name || 'frame';
     const has = !!ghostURL;
     $('lp-ref').hidden = !has;
     if (has) $('lat-ref').src = ghostURL;
@@ -1397,13 +1395,13 @@
     $('sel-count').textContent = n ? `${n} selected` : '';
     $('cmp-open').disabled = n !== 1;
     $('sel-clear').disabled = n === 0;
-    $('sel-hint').textContent = n === 0
+    const hint = n === 0
       ? 'tap a photo to select it. tap three, in order, for a strip.'
       : n === 1
-        ? (selShots()[0].kind === 'photo'
-            ? 'pick a digicam or polaroid frame below.'
-            : 'already framed — frames can only be applied once.')
-        : n === 3 ? 'pick a photostrip below.' : `${n} selected — 1 for a frame, 3 for a strip.`;
+        ? (selShots()[0].kind === 'photo' ? '' : 'already framed — frames can only be applied once.')
+        : n === 3 ? '' : `${n} selected — 1 for a frame, 3 for a strip.`;
+    $('sel-hint').textContent = hint;
+    $('sel-hint').hidden = !hint;          // an empty line still takes up a line
   }
 
   // Photos sit BEHIND the artwork and show through the punched slots.
