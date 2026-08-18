@@ -1231,6 +1231,8 @@
   // these quads only decide each photo's framing and tilt, so small errors here
   // are invisible — the artwork masks the edges either way.
   let stripDef = null;            // which strip design is being composed
+  let stripW = 0, stripH = 0;     // editor canvas size, in output pixels
+  let stripView = [];             // per-slot pan/zoom, parallel to stripDef.slots
   const STRIP_SLOTS = () => (stripDef ? stripDef.slots : []);
 
   let sel = [];                   // shot indices, in tap order
@@ -1310,8 +1312,7 @@
   // Photos sit BEHIND the artwork and show through the punched slots.
   // Pure: takes its geometry and its per-slot views as arguments, so the editor
   // and the hover preview render through the same code at different sizes.
-  function paintStrip(ctx, def, w, h, views) {
-    const stripW = w, stripH = h;
+  function paintStrip(ctx, def, stripW, stripH, views) {
     def.slots.forEach((q, i) => {
       const v = views[i];
       if (!v || !v.img || !v.img.naturalWidth) return;
@@ -1471,6 +1472,7 @@
       clearSel();
       renderShots();
       renderFramePickers();
+      updateVF();          // the gallery button's thumbnail and count
     }, 'image/png');
   }
 
