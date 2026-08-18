@@ -73,8 +73,9 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
 
 ## Frames
 
-Three digicams (a pink Canon, a silver Canon with a lucky-star charm, a pink Sony with Hello
-Kitty), three polaroids (red bows on dusty pink, blue gingham, lilac gingham) and the photostrip.
+Nine of them: three digicams (a pink Canon, a silver Canon with a lucky-star charm, a pink Sony
+with Hello Kitty), three polaroids (red bows on dusty pink, blue gingham, lilac gingham) and three
+photostrips.
 
 They all sit on **one rail** in the gallery, grouped by family and set at a single thumbnail
 height so a wide digicam and a tall photostrip read as the same kind of thing. The rail breaks out
@@ -144,33 +145,46 @@ One wrinkle worth knowing: the window is 0.747, not exactly 3:4, so re-framing a
 9:16 shot would catch a ~4px sliver of its own black bar at each end. Post-capture framing nudges
 the crop inward 1.5% to clear it.
 
-## Photostrip (three shots)
+## Photostrips (three shots)
 
-Take some shots, then **Make photostrip** in the session gallery. Tap three in the order you
-want them top-to-bottom, hit **Make strip**, and an editor opens where each photo can be
-**dragged within its slot** and scrolled/pinched to zoom. **Save to gallery** adds the finished
-strip as a downloadable item.
+Three designs: a red card with Snoopy and a MEMORIES plate, a white strip with black bows, and a
+clipboard. Take some shots, then in the gallery tap three photos in the order you want them
+top-to-bottom and pick a strip. An editor opens where each photo can be **dragged within its slot**
+and scrolled/pinched to zoom. **Save to gallery** adds the finished strip as a downloadable item.
 
-The dragging is not a nicety. The slots are landscape (~1.44) and your shots are portrait, so a
-centred crop keeps only ~52% of the height — enough to lose your head or your legs. Repositioning
-is how you choose what survives.
+The dragging is not a nicety. The slots are close to square (0.95-1.29) and your shots are
+portrait, so a centred crop throws away a lot of height — enough to lose your head or your legs.
+Repositioning is how you choose what survives.
 
-Output is 1640x2048 PNG, transparent, with slots around 368x248.
+Output is 2048px on the long side, PNG, transparent.
 
 ### How the artwork was cut
 
-Same border-flood-fill idea as the digicam, with two differences:
+Backgrounds come off the same way as the frames, but a strip needs **three rotated quads** rather
+than one window, and the three designs disagree about almost everything:
 
-- The background is **cream**, not white, and the ticket stub is cream too — connectivity is what
-  keeps the stub while removing the surround.
-- There is a **drop shadow**, which the fill will not remove because it is darker than the
-  background. It is matted instead: shadow pixels are stored as **black with alpha set by how much
-  they darken the cream**, so they darken whatever is behind them rather than pasting a grey smear
-  onto a non-cream background.
+| | background | slots | tilt |
+|---|---|---|---|
+| 01 | flat grey, opaque | solid white | 0.6 deg |
+| 02 | already transparent | already punched | +7.1 deg |
+| 03 | already transparent | solid **black** | -7.5 deg |
 
-The three slot holes are punched as an **exact pixel mask**, not rectangles. The rotated quads
-(measured at about -7 degrees by a min-area-rect fit) only decide each photo's framing and tilt,
-so small errors there are invisible — the artwork masks the edges regardless.
+So the cutter tries each tone — punched, white, black — and keeps whichever rule yields **three
+regions of matching size**. That last part is the real test: a strip has exactly three slots and
+they are the same size as each other, which no stray highlight or shadow will imitate. Sizes came
+out within 1.08x, 1.01x and 1.00x across the three designs.
+
+Each slot is then fitted with a **min-area rectangle**, searching a quarter-degree at a time for
+the angle whose bounding box is smallest, and reported in the same convention the canvas uses:
+
+```js
+ctx.translate(q.cx * stripW, q.cy * stripH);
+ctx.rotate(q.deg * Math.PI / 180);
+```
+
+The holes themselves are an **exact pixel mask** baked into the PNG. The quads only decide each
+photo's framing and tilt, so small errors there are invisible — the artwork masks the edges either
+way.
 
 ## Opening it
 
@@ -222,5 +236,5 @@ element silently falls back to the UA font. Every button in the app was doing th
 - Shots live in memory for the session only — download the ones you want to keep.
 - The ghost can be moved, scaled and flipped, but not rotated.
 - Frame resolution is limited by the source artwork (407-952px natively).
-- All seven frame PNGs (~1.4MB together) load on every visit, used or not.
-- The photostrip slots are ~184x124 in the source art, so they cap how sharp each photo can be.
+- All nine frame PNGs (~2.4MB together) load on every visit, used or not.
+- Strip slots are 230-440px in the source art, so they cap how sharp each photo can be.

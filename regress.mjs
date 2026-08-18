@@ -117,7 +117,7 @@ globalThis.__seen = seen;
 const ctx = vm.createContext(guard);
 
 
-const ART_DIMS = { dg1: [842, 474], dg2: [782, 501], dg3: [952, 652], po1: [407, 491], po2: [456, 695], po3: [412, 628], st1: [1640, 2048] };
+const ART_DIMS = { dg1: [842, 474], dg2: [782, 501], dg3: [952, 652], po1: [407, 491], po2: [456, 695], po3: [412, 628], st1: [777, 1509], st2: [392, 1090], st3: [532, 1463] };
 const DRIVER = `
 const ART_DIMS = ${JSON.stringify(ART_DIMS)};
 const WIN_ORIENT = {};
@@ -165,14 +165,18 @@ for (const fam of Object.keys(FRAMES)) for (const d of FRAMES[fam]) {
     sel = [0, 1, 2];
     step('selFramable(3)', selFramable(3));
 
-    let e1 = null;
-    try { openStripEditor(FRAMES.strip[0]); } catch (e) { e1 = e.constructor.name + ': ' + e.message; }
-    step('openStripEditor', e1 || 'ok');
-    step('  canvas sized', stripW + 'x' + stripH);
-    step('  slots prepared', stripView.length);
-    step('  editor visible', $('strip-edit').classList.contains('on'));
+    for (const st of FRAMES.strip) {
+      globalThis.__painted.length = 0;
+      let e1 = null;
+      try { openStripEditor(st); } catch (e) { e1 = e.constructor.name + ': ' + e.message; }
+      await sleep(50);
+      step(st.id, (e1 || 'ok') + ' - canvas ' + stripW + 'x' + stripH +
+                  ', ' + stripView.length + ' slots, ' +
+                  globalThis.__painted.length + ' draws, editor ' +
+                  ($('strip-edit').classList.contains('on') ? 'open' : 'CLOSED'));
+    }
+    openStripEditor(FRAMES.strip[0]);
     await sleep(50);
-    step('  drawImage on strip canvas', globalThis.__painted.length);
 
     let e2 = null;
     try { saveStrip(); } catch (e) { e2 = e.constructor.name + ': ' + e.message; }
