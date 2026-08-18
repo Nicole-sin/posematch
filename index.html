@@ -59,6 +59,36 @@
 <rect width='140' height='140' filter='url(%23n)' opacity='.55'/></svg>");
   }
 
+  .view[hidden] { display: none; }
+
+  /* The way into the gallery: the last frame you took, as a button — the same
+     affordance a camera gives you. */
+  .gal-btn {
+    position: relative;
+    width: 50px; height: 50px; flex: 0 0 auto; padding: 0;
+    border: 1px solid rgba(255,255,255,.4);
+    border-radius: 4px;
+    background: rgba(255,255,255,.08);
+    cursor: pointer; overflow: hidden;
+  }
+  .gal-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .gal-btn .meta {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    color: #fff; font-size: 12px;
+  }
+  .gal-btn img:not([hidden]) + .meta {
+    inset: auto 0 0 0; height: 17px;
+    background: rgba(0,0,0,.6); font-size: 9px;
+  }
+
+  .gal-head {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: 9px;
+    padding: max(12px, env(safe-area-inset-top)) 18px 12px;
+    background: linear-gradient(var(--bg) 72%, rgba(0,0,0,0));
+  }
+
   /* ================= SPLASH ================= */
 
   /* The whole app hides behind this. It also earns its keep: starting the
@@ -548,6 +578,7 @@
 </div>
 
 <div class="app">
+<div class="view" id="view-camera">
   <section class="camera" id="camera">
     <div class="stage" id="stage">
       <video id="video" playsinline autoplay muted></video>
@@ -574,12 +605,15 @@
       <button class="chip" id="gridbtn">grid</button>
       <button class="chip" id="diff">diff</button>
       <button class="chip" id="timer">timer off</button>
+      <button class="chip" id="flip" aria-label="Switch camera">flip</button>
     </div>
 
     <div class="cam-bar" id="cam-bar">
       <button class="addbtn" id="add" aria-label="Choose inspo photo">+</button>
       <button class="shutter" id="shoot" disabled aria-label="Take photo"></button>
-      <button class="switch" id="flip" aria-label="Switch camera">⟲</button>
+      <button class="gal-btn" id="to-gallery" aria-label="Open the gallery">
+        <img id="gal-thumb" alt="" hidden><span class="meta" id="gal-n">0</span>
+      </button>
     </div>
 
     <a class="scroll-hint" href="#settings">settings ↓</a>
@@ -639,14 +673,20 @@
       </div>
     </div>
 
+    <input type="file" id="file" accept="image/*" hidden>
+  </section>
+</div>
+
+<div class="view" id="view-gallery" hidden>
+  <header class="gal-head">
+    <button class="act" id="to-camera">&larr; camera</button>
+    <span class="label" id="sel-count"></span>
+    <span style="flex:1 1 auto"></span>
+    <button class="act" id="cmp-open" disabled>compare</button>
+    <button class="act" id="sel-clear" disabled>deselect</button>
+  </header>
+  <section class="settings">
     <div class="group" id="shots-group" hidden>
-      <div class="editor-head">
-        <span class="label">gallery</span>
-        <span class="label" id="sel-count"></span>
-        <span style="flex:1 1 auto"></span>
-        <button class="act" id="cmp-open" disabled>compare</button>
-        <button class="act" id="sel-clear" disabled>deselect</button>
-      </div>
       <div class="shots" id="shots"></div>
       <p class="hint" id="sel-hint">tap a photo to select it. tap three, in order, for a strip.</p>
     </div>
@@ -666,8 +706,8 @@
       <div class="frame-opts"></div>
     </div>
 
-    <input type="file" id="file" accept="image/*" hidden>
   </section>
+</div>
 </div>
 
 <div class="strip-edit" id="strip-edit">
@@ -797,15 +837,28 @@
     stage.style.height = Math.round(h) + 'px';
   }
 
+  // ---------- views ----------
+
+  // Two views, one document. Separate pages would mean separate blob URLs, and
+  // every photo taken this session would be gone the moment you navigated.
+  function showView(name) {
+    $('view-camera').hidden = name !== 'camera';
+    $('view-gallery').hidden = name !== 'gallery';
+    window.scrollTo(0, 0);
+    if (name === 'gallery') { renderShots(); renderFramePickers(); }
+  }
+
   // ---------- viewfinder readouts ----------
 
   function updateVF() {
     $('counter').textContent = 'img_' + String(shotSeq + 1).padStart(4, '0');
-    // Nothing pops up after a shot any more, so the scroll cue reports the count.
-    const hint = document.querySelector('.scroll-hint');
-    if (hint) hint.textContent = shots.length
-      ? `gallery · ${shots.length} ${shots.length === 1 ? 'shot' : 'shots'} \u2193`
-      : 'settings \u2193';
+    // Nothing pops up after a shot any more, so the gallery button carries the
+    // news: the newest frame as its thumbnail, with the count under it.
+    const t = $('gal-thumb'), n = $('gal-n');
+    const last = shots[shots.length - 1];
+    t.hidden = !last;
+    if (last) t.src = last.url;
+    n.textContent = shots.length;
     // The self-timer is the one time a compact camera shows a blinking record dot.
     $('rec').classList.toggle('on', delay > 0);
   }
@@ -1120,7 +1173,7 @@
       justShot = true;
       renderShots();
       renderFramePickers();
-      updateVF();
+      updateVF();          // refreshes the gallery button's thumbnail and count
       justShot = false;
     }, png ? 'image/png' : 'image/jpeg', 0.92);
   }
@@ -1451,6 +1504,8 @@
     applyFrame($('aspect-row').querySelector(want));
   }
 
+  $('to-gallery').addEventListener('click', () => showView('gallery'));
+  $('to-camera').addEventListener('click', () => showView('camera'));
   $('sel-clear').addEventListener('click', clearSel);
   $('cmp-open').addEventListener('click', () => {
     if (sel.length === 1) { shotURL = shots[sel[0]].url; openCompare(shotURL); }
