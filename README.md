@@ -229,7 +229,7 @@ lock. Nothing else on the page is saturated.
 
 Camera furniture rather than retro filters — focus brackets in the viewfinder corners, a live
 date stamp, frame counter, battery, exposure readout, and sequential filenames (`IMG_0043.JPG`)
-that follow each shot through the contact sheet, the compare view and the download. The whole
+that follow each shot through the gallery and the download. The whole
 interface is set in monospace — not just the camera metadata — which pushes it further toward a
 camera menu and away from a website.
 
