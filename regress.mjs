@@ -174,6 +174,26 @@ const DRIVER = `
     step('  strip is the hero', $('lat-cap').textContent === (n && n.name));
     step('  back in gallery', inGallery());
 
+    // ---- the frame follows the photo's shape, with nothing to set ----
+    step('--- frame orientation ---', '');
+    const dg = FRAMES.digicam[0];
+    const dim = c => c.width + 'x' + c.height + (c.width > c.height ? ' (horizontal)' : ' (vertical)');
+    step('portrait  1200x1600 ->', dim(composeFrame({}, 1200, 1600, false, 0, dg)));
+    step('landscape 1600x1200 ->', dim(composeFrame({}, 1600, 1200, false, 0, dg)));
+    step('square    1200x1200 ->', dim(composeFrame({}, 1200, 1200, false, 0, dg)));
+
+    // ---- the preview lands over the photo, not in a floating chip ----
+    step('--- hover preview ---', '');
+    sel = [0]; renderFramePickers();
+    showPreview('digicam', dg);
+    await sleep(40);
+    step('preview visible', !$('lp-pv').hidden);
+    step('  painted into the hero pane', $('lp-pv').children.length + ' canvas');
+    const pc = $('lp-pv').children[0];
+    step('  preview size', pc ? dim(pc) : 'NONE');
+    hidePreview(); await sleep(200);
+    step('preview hidden on leave', $('lp-pv').hidden);
+
     // ---- framing an existing shot keeps you in the gallery ----
     step('--- framing a shot ---', '');
     sel = [0];

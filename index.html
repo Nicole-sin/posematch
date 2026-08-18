@@ -504,6 +504,7 @@
   .lp { flex: 1 1 0; min-width: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
   .lp[hidden] { display: none; }
   .lp .holder {
+    position: relative;
     width: 100%; aspect-ratio: 3 / 4;        /* width is definite here, so this resolves */
     max-height: 54vh;
     background: #0a0a0c; border: 1px solid var(--line); border-radius: 3px; overflow: hidden;
@@ -530,25 +531,15 @@
   }
   .frame-empty { font: 500 11px/1.5 var(--mono); color: #4e4e57; }
 
-  /* Hover preview: your actual selected photos in the frame, before you commit. */
-  .fpv {
-    position: fixed; z-index: 45; pointer-events: none;
-    padding: 8px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
-    box-shadow: 0 10px 28px rgba(0,0,0,.6);
-    opacity: 0; transform: translateY(4px);
-    transition: opacity .12s ease, transform .12s ease;
+  /* Hovering a frame option previews it over the photo itself, at the size you
+     will actually judge it at. */
+  .lp-pv {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    padding: 6px; background: rgba(8, 8, 10, .94);
+    opacity: 0; transition: opacity .12s ease;
   }
-  .fpv[hidden] { display: none; }
-  .fpv.on { opacity: 1; transform: none; }
-  .fpv canvas {
-    display: block; width: auto; height: auto;
-    max-width: 230px; max-height: min(300px, 44vh);
-  }
-  .fpv .cap {
-    display: block; margin-top: 6px; line-height: 1;
-    font: 500 9px/1 var(--mono); letter-spacing: .08em; color: var(--muted); text-align: center;
-  }
+  .lp-pv.on { opacity: 1; }
+  .lp-pv canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; }
 
   /* strip editor */
   .strip-edit {
@@ -701,12 +692,6 @@
         <button class="toggle on" id="screenflash">screen flash</button>
         <button class="toggle" id="framed">frame as you shoot</button>
       </div>
-      <div class="chips-row">
-        <div class="seg" role="group" aria-label="Digicam orientation">
-          <button class="on" id="fr-vert">vertical</button>
-          <button id="fr-horiz">horizontal</button>
-        </div>
-      </div>
     </div>
 
     <input type="file" id="file" accept="image/*" hidden>
@@ -728,7 +713,10 @@
         <figcaption class="cap">ref</figcaption>
       </figure>
       <figure class="lp">
-        <div class="holder"><img id="lat-shot" alt="The photo you just took"></div>
+        <div class="holder">
+          <img id="lat-shot" alt="The photo you just took">
+          <div class="lp-pv" id="lp-pv" hidden></div>
+        </div>
         <figcaption class="cap" id="lat-cap">frame</figcaption>
       </figure>
     </div>
@@ -773,8 +761,6 @@
   </div>
   <div class="strip-holder"><canvas id="strip-canvas"></canvas></div>
 </div>
-
-<div class="fpv" id="fpv" hidden><div class="fpv-art"></div><span class="cap"></span></div>
 
 <div class="compare" id="compare">
   <div class="compare-head">
@@ -860,7 +846,6 @@
     const a = artCache[def.id];
     return !!(a && a.complete && a.naturalWidth && !artFailed[def.id]);
   };
-  let frameHoriz = false;                  // rotate a single-window frame 90 degrees
   const gt = { x: 0, y: 0, scale: 1, flip: false };
 
   const MIN_SCALE = 0.2, MAX_SCALE = 5;
@@ -910,6 +895,8 @@
     const s = shots[shots.length - 1];
     $('latest').hidden = !s;
     if (!s) return;
+    $('lp-pv').hidden = true;
+    $('lp-pv').classList.remove('on');
     const img = $('lat-shot');
     img.classList.remove('developing');
     void img.offsetWidth;                    // restart the animation, do not queue it
@@ -1157,6 +1144,9 @@
   function composeFrame(src, sw, sh, mirrored, inset, def) {
     const art = artCache[def.id];
     const WIN = def.win, FRAME_OUT_LONG = def.long;
+    // A landscape photo turns the frame on its side. The shape of what you shot
+    // is the only signal needed, so there is nothing to set.
+    const frameHoriz = sw > sh;
     const aw = art.naturalWidth, ah = art.naturalHeight;
     const scale = FRAME_OUT_LONG / Math.max(aw, ah);
     const upW = Math.round(aw * scale), upH = Math.round(ah * scale);   // upright size
@@ -1336,10 +1326,10 @@
         if (!b.disabled) {
           // Touch has no hover; a tap would only flash the panel before committing.
           b.addEventListener('pointerenter', e => {
-            if (e.pointerType !== 'touch') showPreview(b, fam, def);
+            if (e.pointerType !== 'touch') showPreview(fam, def);
           });
           b.addEventListener('pointerleave', hidePreview);
-          b.addEventListener('focus', () => showPreview(b, fam, def));
+          b.addEventListener('focus', () => showPreview(fam, def));
           b.addEventListener('blur', hidePreview);
         }
         box.appendChild(b);
@@ -1398,7 +1388,7 @@
 
   // ---------- hover preview ----------
 
-  const PREVIEW_LONG = 460;                // enough to read, cheap to paint
+  const PREVIEW_LONG = 720;                // it fills the hero pane now, so paint it bigger
   const shotImg = {};                      // url -> decoded HTMLImageElement
 
   function decoded(url, cb) {
@@ -1446,41 +1436,23 @@
   function hidePreview() {
     clearTimeout(pvTimer);
     pvToken++;                             // any render still in flight is stale
-    $('fpv').classList.remove('on');
-    pvTimer = setTimeout(() => { $('fpv').hidden = true; }, 140);
+    const p = $('lp-pv');
+    p.classList.remove('on');
+    pvTimer = setTimeout(() => { p.hidden = true; }, 140);
   }
 
-  function showPreview(btn, fam, def) {
+  function showPreview(fam, def) {
     clearTimeout(pvTimer);
     const mine = ++pvToken;
     buildPreview(fam, def, c => {
       if (mine !== pvToken) return;        // pointer moved on while we painted
-      const p = $('fpv');
-      const art = p.querySelector('.fpv-art');
-      art.textContent = '';
-      art.appendChild(c);
-      p.querySelector('.cap').textContent = 'preview \u00b7 ' + def.id;
+      const p = $('lp-pv');
+      p.textContent = '';
+      p.appendChild(c);
       p.hidden = false;
-      placePreview(p, btn);
       requestAnimationFrame(() => p.classList.add('on'));
     });
   }
-
-  // Above the option when it fits, below when it does not, clamped to the viewport.
-  function placePreview(p, btn) {
-    p.style.left = '0px'; p.style.top = '0px';        // measure unclamped
-    const r = btn.getBoundingClientRect(), b = p.getBoundingClientRect();
-    const M = 8;
-    const x = Math.max(M, Math.min(r.left + r.width / 2 - b.width / 2,
-                                   innerWidth - b.width - M));
-    let y = r.top - b.height - M;
-    if (y < M) y = Math.min(r.bottom + M, innerHeight - b.height - M);
-    p.style.left = Math.round(x) + 'px';
-    p.style.top = Math.round(Math.max(M, y)) + 'px';
-  }
-
-  // The panel is fixed, so scrolling would leave it stranded away from its option.
-  addEventListener('scroll', () => { if (!$('fpv').hidden) hidePreview(); }, true);
 
   function openStripEditor(def) {
     stripDef = def;
@@ -1641,13 +1613,6 @@
     framed = !framed;
     $('framed').classList.toggle('on', framed);
   });
-  const setFrameOrient = h => {
-    frameHoriz = h;
-    $('fr-vert').classList.toggle('on', !h);
-    $('fr-horiz').classList.toggle('on', h);
-  };
-  $('fr-vert').addEventListener('click', () => setFrameOrient(false));
-  $('fr-horiz').addEventListener('click', () => setFrameOrient(true));
   video.classList.add('mirrored');
 
   // Timer cycles off -> 3 -> 10, the way the iOS control does.
