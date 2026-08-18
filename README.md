@@ -42,15 +42,15 @@ scroll down.
    only one that looks zoomed; **9:16 fit** gives the same story-shaped file by padding with
    black bars instead.
 5. Pick a timer, prop the phone up, get into the pose.
-6. Shoot, compare against the inspo, download.
+6. Shoot. The gallery opens with your shot beside the inspo; frame it or download it.
 
 On desktop the same page becomes a two-column layout with a sidebar; extra controls are behind
 **More** on phones and always visible on desktop.
 
 ### Shortcuts (desktop)
 
-`space` shoot · `m` mirror · `g` grid · `[` `]` opacity · `-` `+` zoom · `r` reset ghost ·
-`esc` close compare
+`space` shoot, or return to the camera from the gallery · `m` mirror · `g` grid ·
+`[` `]` opacity · `-` `+` zoom · `r` reset ghost
 
 ## Design notes
 
@@ -70,6 +70,31 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
 - **Ghost zoom is log-mapped** (20%–500%). On a linear track 100% would sit at 17% along the
   bar; log-mapped it lands dead centre and zooming in and out are mirror images. The slider,
   pinch and scroll all drive one value and stay in sync.
+
+## Comparing
+
+There is no separate compare screen. The shot sits at the top of the gallery, above the frame rail
+and the roll, in one of three states:
+
+| compare | superimpose | what you see |
+|---|---|---|
+| off | off | your photo on its own |
+| **on** | off | the inspo and your photo side by side |
+| either | **on** | the inspo laid over your photo at 50% |
+
+The two buttons are toggles, so pressing the lit one drops back to the photo alone. They are
+mutually exclusive in effect — superimposing means showing both, so it supersedes side by side
+rather than combining with it.
+
+Taking a shot with an inspo loaded lands in **compare**, with that button lit. Download is
+deliberately not the lit button: the thing worth doing next is looking at how close you got.
+
+Both are laid out in the same box, so the reference and the shot are letterboxed identically and
+the poses line up when stacked. With no inspo loaded there is nothing to compare against, so both
+buttons grey out.
+
+Tapping any shot in the roll brings it up top, so an older frame can be compared too, not just
+the newest.
 
 ## Frames
 
@@ -142,10 +167,8 @@ under that edge instead of leaving a gap.
 
 ### After the fact
 
-Both the frame and the photostrip can also be applied to a shot you have already taken —
-**add frame** and **photostrip** sit in the compare view that opens after every capture, so you
-do not have to decide before shooting. **photostrip** carries that shot into selection with it
-already picked as the first frame.
+Every frame can also be applied to a shot you have already taken — the rail sits in the gallery
+that opens after each capture, so you do not have to decide before shooting.
 
 One wrinkle worth knowing: the window is 0.747, not exactly 3:4, so re-framing a letterboxed
 9:16 shot would catch a ~4px sliver of its own black bar at each end. Post-capture framing nudges

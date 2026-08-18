@@ -510,6 +510,9 @@
     background: #0a0a0c; border: 1px solid var(--line); border-radius: 3px; overflow: hidden;
   }
   .lp img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  /* superimpose: the reference laid over the shot in the same box, so both are
+     letterboxed identically and the poses line up. */
+  .lp .over { position: absolute; inset: 0; opacity: .5; }
   .lp .cap { font: 500 10px/1 var(--mono); letter-spacing: .1em;
              color: var(--muted); text-align: center; }
   .latest-act { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -565,37 +568,11 @@
     background: rgba(0,0,0,.97);
   }
   .strip-edit.on { display: flex; }
+  .strip-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .strip-head h2 { margin: 0; font-size: 15px; flex: 1 1 100%; }
   .strip-holder { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
   #strip-canvas { max-width: 100%; max-height: 100%; touch-action: none; cursor: grab; }
   #strip-canvas:active { cursor: grabbing; }
-
-  /* ================= COMPARE ================= */
-
-  .compare {
-    position: fixed; inset: 0; z-index: 30; display: none;
-    flex-direction: column; gap: 10px;
-    padding: max(12px, env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
-    background: rgba(0,0,0,.97);
-  }
-  .compare.on { display: flex; }
-  .compare-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .compare-head h2 { margin: 0; font-size: 15px; flex: 1 1 100%; }
-  .compare-body {
-    flex: 1 1 auto; min-height: 0;
-    display: flex; gap: 8px; justify-content: center; align-items: stretch;
-  }
-  /* flex:1 1 0 + min-width:0 — these hold only max-width-constrained images, so
-     a content-based basis would collapse them to nothing. */
-  .pane { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-  .pane .cap { font: 500 10px/1 var(--mono); letter-spacing: .1em;
-               color: var(--muted); text-align: center; }
-  .pane .holder { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
-  .pane img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; margin: auto; display: block; }
-  .stack { position: relative; flex: 1 1 100%; min-width: 0; display: none; }
-  .stack img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-  .stack img.top { opacity: .5; }
-  .compare.stacked .side { display: none; }
-  .compare.stacked .stack { display: block; }
 
   [hidden] { display: none !important; }
 
@@ -719,7 +696,6 @@
     <button class="act" id="to-camera">&larr; camera</button>
     <span class="label" id="sel-count"></span>
     <span style="flex:1 1 auto"></span>
-    <button class="act" id="cmp-open" disabled>compare</button>
     <button class="act" id="sel-clear" disabled>deselect</button>
   </header>
   <section class="latest" id="latest" hidden>
@@ -730,15 +706,16 @@
       </figure>
       <figure class="lp">
         <div class="holder">
-          <img id="lat-shot" alt="The photo you just took">
+          <img id="lat-shot" alt="Your photo">
+          <img id="lat-over" class="over" alt="The photo you are matching" hidden>
           <div class="lp-pv" id="lp-pv" hidden></div>
         </div>
-
       </figure>
     </div>
     <div class="latest-act">
-      <button class="act" id="lat-cmp">compare</button>
-      <button class="act primary" id="lat-dl">download</button>
+      <button class="toggle" id="lat-cmp" disabled>compare</button>
+      <button class="toggle" id="lat-sup" disabled>superimpose</button>
+      <button class="act" id="lat-dl">download</button>
       <button class="act" id="lat-again">take another</button>
     </div>
   </section>
@@ -774,28 +751,12 @@
 </div>
 
 <div class="strip-edit" id="strip-edit">
-  <div class="compare-head">
+  <div class="strip-head">
     <h2>drag a photo to reposition it · scroll or pinch to zoom</h2>
     <button class="act primary" id="strip-save">save to gallery</button>
     <button class="act" id="strip-close">cancel</button>
   </div>
   <div class="strip-holder"><canvas id="strip-canvas"></canvas></div>
-</div>
-
-<div class="compare" id="compare">
-  <div class="compare-head">
-    <button class="toggle" id="stack-btn">compare</button>
-    <button class="act primary" id="download">download</button>
-    <button class="act" id="retake">back</button>
-  </div>
-  <div class="compare-body">
-    <div class="pane side"><span class="cap">ref</span><div class="holder"><img id="cmp-inspo" alt="Inspo"></div></div>
-    <div class="pane side"><span class="cap" id="cmp-cap">frame</span><div class="holder"><img id="cmp-shot" alt="Your photo"></div></div>
-    <div class="stack" id="stack">
-      <img id="stk-shot" alt="Your photo">
-      <img id="stk-inspo" class="top" alt="Inspo">
-    </div>
-  </div>
 </div>
 
 <div class="grain"></div>
@@ -808,7 +769,7 @@
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
   const stage = $('stage'), video = $('video'), ghost = $('ghost');
-  const camera = $('camera'), msg = $('msg'), shootBtn = $('shoot'), compare = $('compare');
+  const camera = $('camera'), msg = $('msg'), shootBtn = $('shoot');
 
   // ---------- state ----------
 
@@ -930,11 +891,25 @@
     if (name === 'gallery') { renderLatest(); renderShots(); renderFramePickers(); }
   }
 
-  // The newest frame, beside the pose it was aiming at.
+  // The hero: one shot, shown on its own, beside the pose it was aiming at, or
+  // with that pose laid over it. Three states of one view rather than a second
+  // screen, so the frames and the roll stay reachable while you compare.
+  let heroMode = 'solo';                     // 'solo' | 'compare' | 'stack'
+  let heroIdx = -1;                          // -1 follows the newest shot
+  const heroShot = () =>
+    shots[heroIdx >= 0 && heroIdx < shots.length ? heroIdx : shots.length - 1];
+
+  function setHeroMode(m) {
+    heroMode = heroMode === m ? 'solo' : m;  // pressing the lit one drops back
+    renderLatest();
+  }
+
   function renderLatest() {
-    const s = shots[shots.length - 1];
+    const s = heroShot();
     $('latest').hidden = !s;
     if (!s) return;
+    shotURL = s.url;                         // download and framing follow the hero
+
     $('lp-pv').hidden = true;
     $('lp-pv').classList.remove('on');
     const img = $('lat-shot');
@@ -942,9 +917,16 @@
     void img.offsetWidth;                    // restart the animation, do not queue it
     if (justShot) img.classList.add('developing');
     img.src = s.url;
+
     const has = !!ghostURL;
-    $('lp-ref').hidden = !has;
-    if (has) $('lat-ref').src = ghostURL;
+    if (!has) heroMode = 'solo';             // nothing to compare against
+    if (has) { $('lat-ref').src = ghostURL; $('lat-over').src = ghostURL; }
+    $('lp-ref').hidden = heroMode !== 'compare';
+    $('lat-over').hidden = heroMode !== 'stack';
+    for (const [id, mode] of [['lat-cmp', 'compare'], ['lat-sup', 'stack']]) {
+      $(id).disabled = !has;
+      $(id).classList.toggle('on', has && heroMode === mode);
+    }
   }
 
   // ---------- viewfinder readouts ----------
@@ -1288,6 +1270,8 @@
       // tap away, with the rest of the roll pushed down below it.
       justShot = true;
       sel = [shots.length - 1];
+      heroIdx = shots.length - 1;
+      if (ghostURL) heroMode = 'compare';    // there is something to compare to
       showView('gallery');
       updateVF();          // the camera's gallery button, for when you go back
       justShot = false;
@@ -1341,7 +1325,8 @@
   function toggleSel(i) {
     const at = sel.indexOf(i);
     if (at >= 0) sel.splice(at, 1); else sel.push(i);
-    renderShots(); renderFramePickers();
+    heroIdx = i;                             // tapping a shot is asking to look at it
+    renderShots(); renderFramePickers(); renderLatest();
   }
 
   // Builds the picker for each family and sets what is reachable right now.
@@ -1393,7 +1378,6 @@
 
     const n = sel.length;
     $('sel-count').textContent = n ? `${n} selected` : '';
-    $('cmp-open').disabled = n !== 1;
     $('sel-clear').disabled = n === 0;
     const hint = n === 0
       ? 'tap a photo to select it. tap three, in order, for a strip.'
@@ -1548,33 +1532,11 @@
       $('strip-edit').classList.remove('on');
       sel = [];
       justShot = true;
+      heroIdx = shots.length - 1;
       showView('gallery');
       updateVF();          // the gallery button's thumbnail and count
       justShot = false;
     }, 'image/png');
-  }
-
-  // ---------- compare ----------
-
-  function openCompare(url) {
-    const shot = shots.find(s => s.url === url);
-    $('cmp-cap').textContent = (shot && shot.name) || 'frame';
-    $('cmp-shot').classList.remove('developing');
-    void $('cmp-shot').offsetWidth;
-    if (justShot) $('cmp-shot').classList.add('developing');
-    $('cmp-shot').src = url;
-    $('stk-shot').src = url;
-    const has = !!ghostURL;
-    for (const el of [$('cmp-inspo'), $('stk-inspo')]) {
-      if (has) el.src = ghostURL; else el.removeAttribute('src');
-    }
-    compare.querySelectorAll('.side')[0].style.display = has ? '' : 'none';
-    $('stack-btn').disabled = !has;
-    compare.classList.add('on');
-  }
-  function closeCompare() {
-    compare.classList.remove('on', 'stacked');
-    $('stack-btn').classList.remove('on');
   }
 
   // ---------- ghost drag / pinch ----------
@@ -1705,9 +1667,6 @@
   $('to-gallery').addEventListener('click', () => showView('gallery'));
   $('to-camera').addEventListener('click', () => showView('camera'));
   $('sel-clear').addEventListener('click', clearSel);
-  $('cmp-open').addEventListener('click', () => {
-    if (sel.length === 1) { shotURL = shots[sel[0]].url; openCompare(shotURL); }
-  });
   $('strip-close').addEventListener('click', () => $('strip-edit').classList.remove('on'));
   $('strip-save').addEventListener('click', saveStrip);
 
@@ -1766,11 +1725,7 @@
 
   shootBtn.addEventListener('click', capture);
   $('retry').addEventListener('click', startCamera);
-  $('retake').addEventListener('click', closeCompare);
-  $('stack-btn').addEventListener('click', () => {
-    compare.classList.toggle('stacked');
-    $('stack-btn').classList.toggle('on');
-  });
+
   function downloadShot(url) {
     if (!url) return;
     const a = document.createElement('a');
@@ -1779,9 +1734,9 @@
     a.download = (shots[i] && shots[i].name) || ('pose-match-' + (i + 1) + '.jpg');
     a.click();
   }
-  $('download').addEventListener('click', () => downloadShot(shotURL));
   $('lat-dl').addEventListener('click', () => downloadShot(shotURL));
-  $('lat-cmp').addEventListener('click', () => { if (shotURL) openCompare(shotURL); });
+  $('lat-cmp').addEventListener('click', () => setHeroMode('compare'));
+  $('lat-sup').addEventListener('click', () => setHeroMode('stack'));
   $('lat-again').addEventListener('click', () => showView('camera'));
 
   document.addEventListener('keydown', e => {
@@ -1789,11 +1744,9 @@
     const k = e.key.toLowerCase();
     if (k === ' ' || e.code === 'Space') {
       e.preventDefault();
-      if (compare.classList.contains('on')) closeCompare();
-      else if ($('view-camera').hidden) showView('camera');   // shoot again
+      if ($('view-camera').hidden) showView('camera');       // shoot again
       else capture();
     }
-    else if (k === 'escape' && compare.classList.contains('on')) closeCompare();
     else if (k === 'm') $('mirror').click();
     else if (k === 'g') $('gridbtn').click();
     else if (k === 'r') resetGhost();

@@ -134,6 +134,11 @@ for (const fam of Object.keys(FRAMES)) for (const d of FRAMES[fam]) {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const inGallery = () => !$('view-gallery').hidden && $('view-camera').hidden;
   try {
+    const mode = () => (!$('lp-ref').hidden ? 'compare'
+                      : !$('lat-over').hidden ? 'superimpose' : 'solo')
+                      + ' [cmp ' + ($('lat-cmp').classList.contains('on') ? 'lit' : 'off')
+                      + ', sup ' + ($('lat-sup').classList.contains('on') ? 'lit' : 'off') + ']';
+
     // ---- scenario 1: taking a photo drops you in the gallery ----
     step('--- after a shot ---', '');
     shots.length = 0; sel = [];
@@ -149,20 +154,40 @@ for (const fam of Object.keys(FRAMES)) for (const d of FRAMES[fam]) {
     step('new shot auto-selected', JSON.stringify(sel) + ' of ' + shots.length);
     step('frame is one tap away', selFramable(1));
     step('roll sits below', !$('shots-group').hidden);
+    step('lands in compare, lit', mode());
+    step('download not highlighted', !$('lat-dl').classList.contains('primary'));
+    step('no separate compare screen', !$('compare'));
+
+    // ---- the three display states ----
+    step('--- display modes ---', '');
+    setHeroMode('stack');   step('press superimpose', mode());
+    setHeroMode('compare'); step('press compare', mode());
+    setHeroMode('compare'); step('press compare again', mode());
+    setHeroMode('stack');   step('superimpose from solo', mode());
+    setHeroMode('stack');   step('press superimpose again', mode());
+    step('  ref layer src', $('lat-over').src);
 
     // ---- no inspo loaded: the ref pane collapses ----
     step('--- no inspo loaded ---', '');
     ghostURL = null; renderLatest();
-    step('ref pane hidden', $('lp-ref').hidden);
+    step('falls back to solo', mode());
+    step('both toggles disabled', $('lat-cmp').disabled && $('lat-sup').disabled);
     step('latest still shown', !$('latest').hidden);
-    ghostURL = 'blob:inspo';
+    ghostURL = 'blob:inspo'; renderLatest();
+    step('re-enabled with an inspo', !$('lat-cmp').disabled && !$('lat-sup').disabled);
 
     // ---- scenario 2: two more shots, then a strip ----
     step('--- strip from three shots ---', '');
     finishGrab(document.createElement('canvas'), 'jpg', 'photo'); await sleep(20);
     finishGrab(document.createElement('canvas'), 'jpg', 'photo'); await sleep(20);
     step('shots taken', shots.length);
-    sel = [0, 1, 2];
+    // ---- tapping an older shot brings it up top ----
+    step('--- hero follows your tap ---', '');
+    toggleSel(0);
+    step('tapped shot 0, hero is', $('lat-shot').src + ' (want blob:shot-1)');
+    toggleSel(2);
+    step('tapped shot 2, hero is', $('lat-shot').src + ' (want blob:shot-3)');
+    sel = [0, 1, 2]; renderShots(); renderFramePickers();
     step('selFramable(3)', selFramable(3));
 
     for (const st of FRAMES.strip) {
