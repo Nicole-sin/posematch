@@ -109,6 +109,17 @@ sticker, metal highlights) that a global key would have punched holes through. T
 eroded 1px to kill the halo left by JPEG edge blending, and the compositor draws the photo 2px
 oversized so it tucks under that edge instead of leaving a gap.
 
+### After the fact
+
+Both the frame and the photostrip can also be applied to a shot you have already taken —
+**add frame** and **photostrip** sit in the compare view that opens after every capture, so you
+do not have to decide before shooting. **photostrip** carries that shot into selection with it
+already picked as the first frame.
+
+One wrinkle worth knowing: the window is 0.747, not exactly 3:4, so re-framing a letterboxed
+9:16 shot would catch a ~4px sliver of its own black bar at each end. Post-capture framing nudges
+the crop inward 1.5% to clear it.
+
 ## Photostrip (three shots)
 
 Take some shots, then **Make photostrip** in the session gallery. Tap three in the order you
