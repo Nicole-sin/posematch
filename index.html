@@ -497,6 +497,22 @@
   .hint { color: var(--muted); font-size: 11.5px; margin: 0; }
 
 
+  /* The shot you just took, against the pose you were matching. This is the
+     first thing the gallery shows — the rest of the roll sits under it. */
+  .latest { display: grid; gap: 11px; padding: 0 18px 16px; }
+  .latest-row { display: flex; gap: 8px; }
+  .lp { flex: 1 1 0; min-width: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  .lp[hidden] { display: none; }
+  .lp .holder {
+    width: 100%; aspect-ratio: 3 / 4;        /* width is definite here, so this resolves */
+    max-height: 54vh;
+    background: #0a0a0c; border: 1px solid var(--line); border-radius: 3px; overflow: hidden;
+  }
+  .lp img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .lp .cap { font: 500 10px/1 var(--mono); letter-spacing: .1em;
+             color: var(--muted); text-align: center; }
+  .latest-act { display: flex; gap: 8px; flex-wrap: wrap; }
+
   /* Frame pickers: the artwork itself is the button. */
   .frame-opts { display: flex; gap: 10px; flex-wrap: wrap; }
   .frame-opt {
@@ -705,12 +721,25 @@
     <button class="act" id="cmp-open" disabled>compare</button>
     <button class="act" id="sel-clear" disabled>deselect</button>
   </header>
-  <section class="settings">
-    <div class="group" id="shots-group" hidden>
-      <div class="shots" id="shots"></div>
-      <p class="hint" id="sel-hint">tap a photo to select it. tap three, in order, for a strip.</p>
+  <section class="latest" id="latest" hidden>
+    <div class="latest-row">
+      <figure class="lp" id="lp-ref">
+        <div class="holder"><img id="lat-ref" alt="The photo you are matching"></div>
+        <figcaption class="cap">ref</figcaption>
+      </figure>
+      <figure class="lp">
+        <div class="holder"><img id="lat-shot" alt="The photo you just took"></div>
+        <figcaption class="cap" id="lat-cap">frame</figcaption>
+      </figure>
     </div>
+    <div class="latest-act">
+      <button class="act" id="lat-cmp">compare</button>
+      <button class="act primary" id="lat-dl">download</button>
+      <button class="act" id="lat-again">take another</button>
+    </div>
+  </section>
 
+  <section class="settings">
     <div class="group frame-group" data-fam="digicam" hidden>
       <span class="label">digicam frames</span>
       <div class="frame-opts"></div>
@@ -724,6 +753,12 @@
     <div class="group frame-group" data-fam="strip" hidden>
       <span class="label">photostrips</span>
       <div class="frame-opts"></div>
+    </div>
+
+    <div class="group" id="shots-group" hidden>
+      <span class="label">all photos</span>
+      <div class="shots" id="shots"></div>
+      <p class="hint" id="sel-hint">tap a photo to select it. tap three, in order, for a strip.</p>
     </div>
 
   </section>
@@ -867,7 +902,23 @@
     $('view-camera').hidden = name !== 'camera';
     $('view-gallery').hidden = name !== 'gallery';
     window.scrollTo(0, 0);
-    if (name === 'gallery') { renderShots(); renderFramePickers(); }
+    if (name === 'gallery') { renderLatest(); renderShots(); renderFramePickers(); }
+  }
+
+  // The newest frame, beside the pose it was aiming at.
+  function renderLatest() {
+    const s = shots[shots.length - 1];
+    $('latest').hidden = !s;
+    if (!s) return;
+    const img = $('lat-shot');
+    img.classList.remove('developing');
+    void img.offsetWidth;                    // restart the animation, do not queue it
+    if (justShot) img.classList.add('developing');
+    img.src = s.url;
+    $('lat-cap').textContent = s.name || 'frame';
+    const has = !!ghostURL;
+    $('lp-ref').hidden = !has;
+    if (has) $('lat-ref').src = ghostURL;
   }
 
   // ---------- viewfinder readouts ----------
@@ -1008,7 +1059,9 @@
   // ---------- capture ----------
 
   function capture() {
-    if (!stream || counting) return;
+    // The gallery hides the viewfinder but not the stream, so without this the
+    // shutter key would keep taking blind photos from the gallery.
+    if (!stream || counting || $('view-camera').hidden) return;
     if (delay > 0) return runCountdown(delay);
     fireFlashThenGrab();
   }
@@ -1192,10 +1245,13 @@
       const name = stem + String(++shotSeq).padStart(4, '0') + '.' + (png ? 'png' : 'jpg');
       shots.push({ url, blob, ext: png ? 'png' : 'jpg', name, kind: k });
       shotURL = url;
+      // Straight to the gallery, the way a booth hands you the print: the new
+      // frame on top beside the reference, already selected so a frame is one
+      // tap away, with the rest of the roll pushed down below it.
       justShot = true;
-      renderShots();
-      renderFramePickers();
-      updateVF();          // refreshes the gallery button's thumbnail and count
+      sel = [shots.length - 1];
+      showView('gallery');
+      updateVF();          // the camera's gallery button, for when you go back
       justShot = false;
     }, png ? 'image/png' : 'image/jpeg', 0.92);
   }
@@ -1469,10 +1525,11 @@
                    name: 'strip' + String(++shotSeq).padStart(4, '0') + '.png' });
       shotURL = url;
       $('strip-edit').classList.remove('on');
-      clearSel();
-      renderShots();
-      renderFramePickers();
+      sel = [];
+      justShot = true;
+      showView('gallery');
       updateVF();          // the gallery button's thumbnail and count
+      justShot = false;
     }, 'image/png');
   }
 
@@ -1700,19 +1757,28 @@
     compare.classList.toggle('stacked');
     $('stack-btn').classList.toggle('on');
   });
-  $('download').addEventListener('click', () => {
-    if (!shotURL) return;
+  function downloadShot(url) {
+    if (!url) return;
     const a = document.createElement('a');
-    a.href = shotURL;
-    const i = shots.findIndex(s => s.url === shotURL);
+    a.href = url;
+    const i = shots.findIndex(s => s.url === url);
     a.download = (shots[i] && shots[i].name) || ('pose-match-' + (i + 1) + '.jpg');
     a.click();
-  });
+  }
+  $('download').addEventListener('click', () => downloadShot(shotURL));
+  $('lat-dl').addEventListener('click', () => downloadShot(shotURL));
+  $('lat-cmp').addEventListener('click', () => { if (shotURL) openCompare(shotURL); });
+  $('lat-again').addEventListener('click', () => showView('camera'));
 
   document.addEventListener('keydown', e => {
     if (e.target.matches('input, textarea')) return;
     const k = e.key.toLowerCase();
-    if (k === ' ' || e.code === 'Space') { e.preventDefault(); compare.classList.contains('on') ? closeCompare() : capture(); }
+    if (k === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      if (compare.classList.contains('on')) closeCompare();
+      else if ($('view-camera').hidden) showView('camera');   // shoot again
+      else capture();
+    }
     else if (k === 'escape' && compare.classList.contains('on')) closeCompare();
     else if (k === 'm') $('mirror').click();
     else if (k === 'g') $('gridbtn').click();

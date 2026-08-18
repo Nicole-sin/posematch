@@ -1,9 +1,10 @@
-// Drives the real page script through the photostrip flow in a stubbed DOM.
+// Drives the real page script through the capture -> gallery -> frame -> strip
+// flow in a stubbed DOM.
 // Exists because the strip path is unreachable without a camera and a browser,
 // and it silently did nothing for weeks: stripW/stripH/stripView were assigned
 // but never declared, which under 'use strict' is a ReferenceError that killed
 // openStripEditor on its first line.
-//   node regress-strip.mjs
+//   node regress.mjs
 // actual strip path under 'use strict', which is where the bug lived.
 import fs from 'fs';
 import vm from 'vm';
@@ -119,10 +120,36 @@ const DRIVER = `
   const out = globalThis.__out = { steps: [] };
   const step = (k, v) => out.steps.push([k, v]);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const inGallery = () => !$('view-gallery').hidden && $('view-camera').hidden;
   try {
-    shots.length = 0;
-    for (let i = 0; i < 3; i++)
-      shots.push({ url: 'blob:p' + i, blob: {}, ext: 'jpg', name: 'img_000' + (i+1) + '.jpg', kind: 'photo' });
+    // ---- scenario 1: taking a photo drops you in the gallery ----
+    step('--- after a shot ---', '');
+    shots.length = 0; sel = [];
+    ghostURL = 'blob:inspo';                       // an inspo photo is loaded
+    finishGrab(document.createElement('canvas'), 'jpg', 'photo');
+    await sleep(40);
+    step('view is gallery', inGallery());
+    step('latest shown', !$('latest').hidden);
+    step('  ref pane shown', !$('lp-ref').hidden);
+    step('  ref src', $('lat-ref').src);
+    step('  shot src', $('lat-shot').src);
+    step('  caption', $('lat-cap').textContent);
+    step('new shot auto-selected', JSON.stringify(sel) + ' of ' + shots.length);
+    step('frame is one tap away', selFramable(1));
+    step('roll sits below', !$('shots-group').hidden);
+
+    // ---- no inspo loaded: the ref pane collapses ----
+    step('--- no inspo loaded ---', '');
+    ghostURL = null; renderLatest();
+    step('ref pane hidden', $('lp-ref').hidden);
+    step('latest still shown', !$('latest').hidden);
+    ghostURL = 'blob:inspo';
+
+    // ---- scenario 2: two more shots, then a strip ----
+    step('--- strip from three shots ---', '');
+    finishGrab(document.createElement('canvas'), 'jpg', 'photo'); await sleep(20);
+    finishGrab(document.createElement('canvas'), 'jpg', 'photo'); await sleep(20);
+    step('shots taken', shots.length);
     sel = [0, 1, 2];
     step('selFramable(3)', selFramable(3));
 
@@ -133,7 +160,7 @@ const DRIVER = `
     step('  slots prepared', stripView.length);
     step('  editor visible', $('strip-edit').classList.contains('on'));
     await sleep(50);
-    step('  drawImage on strip canvas', globalThis.__painted.length + ' (3 photos + 1 artwork = 4)');
+    step('  drawImage on strip canvas', globalThis.__painted.length);
 
     let e2 = null;
     try { saveStrip(); } catch (e) { e2 = e.constructor.name + ': ' + e.message; }
@@ -141,14 +168,25 @@ const DRIVER = `
     step('saveStrip', e2 || 'ok');
     step('  shots now', shots.length + ' (was 3)');
     const n = shots[shots.length - 1];
-    step('  newest shot', n ? JSON.stringify({ name: n.name, kind: n.kind, url: n.url }) : 'NONE');
+    step('  newest shot', n ? n.name + ' / ' + n.kind : 'NONE');
     step('  editor closed', !$('strip-edit').classList.contains('on'));
     step('  selection cleared', sel.length === 0);
-    step('  gallery grid cells', $('shots').children.length);
+    step('  strip is the hero', $('lat-cap').textContent === (n && n.name));
+    step('  back in gallery', inGallery());
+
+    // ---- framing an existing shot keeps you in the gallery ----
+    step('--- framing a shot ---', '');
+    sel = [0];
+    finishGrab(document.createElement('canvas'), 'png', 'framed');
+    await sleep(40);
+    step('framed shot is the hero', $('lat-cap').textContent);
+    step('cannot be framed twice', selFramable(1) === false);
+    step('still in gallery', inGallery());
   } catch (e) { out.fatal = e.constructor.name + ': ' + e.message + '\\n' + e.stack; }
   out.done = true;
 })();
 `;
+
 
 let loadErr = null;
 try { vm.runInContext(js.replace(/\}\)\(\);\s*$/, DRIVER + '\n})();'), ctx, { filename: 'index.html<script>' }); }
