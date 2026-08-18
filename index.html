@@ -73,14 +73,32 @@
     transition: opacity .38s ease;
   }
   .splash.gone { opacity: 0; pointer-events: none; }
+  /* Hover has to be scoped to the artwork. .splash is fixed inset:0, so
+     .splash:hover matches the cursor being anywhere on the page at all — the
+     camera would swell on load and never shrink back. */
+  .splash-inner {
+    display: flex; flex-direction: column; align-items: center; gap: 26px;
+  }
   .splash img {
-    width: min(72vw, 64vh, 880px);
+    width: min(72vw, 58vh, 860px);
     height: auto; display: block;
     filter: drop-shadow(0 26px 60px rgba(0,0,0,.65));
     transition: transform .3s cubic-bezier(.2,.9,.3,1);
   }
-  .splash:hover img, .splash:focus-visible img { transform: scale(1.07); }
+  .splash-inner:hover img, .splash:focus-visible img { transform: scale(1.07); }
   .splash.press img { transform: scale(.96); }
+
+  .splash-cta {
+    display: inline-flex; align-items: center; gap: 9px;
+    font: 500 12px/1 var(--mono);
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    transition: color .2s ease;
+  }
+  .splash-inner:hover .splash-cta { color: var(--silver); }
+  .splash-cta .arw { font-size: 15px; animation: bob 1.7s ease-in-out infinite; }
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
   .splash:focus { outline: none; }
   .splash .pop {
     position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none;
@@ -505,13 +523,17 @@
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     .countdown span { animation: none; }
+    .splash-cta .arw { animation: none; }
   }
 </style>
 </head>
 <body>
 
 <div class="splash" id="splash" role="button" tabindex="0" aria-label="Open the camera">
-  <img src="camera.png" alt="">
+  <div class="splash-inner">
+    <img src="camera.png" alt="">
+    <span class="splash-cta"><span class="arw">&uarr;</span> click me</span>
+  </div>
   <div class="pop"></div>
 </div>
 
