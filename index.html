@@ -466,7 +466,23 @@
 
   .hint { color: var(--muted); font-size: 11.5px; margin: 0; }
 
-  .shots.selecting img { cursor: pointer; }
+
+  /* Frame pickers: the artwork itself is the button. */
+  .frame-opts { display: flex; gap: 10px; flex-wrap: wrap; }
+  .frame-opt {
+    width: 78px; padding: 7px;
+    background: #131316; border: 1px solid #33333a; border-radius: 3px;
+    cursor: pointer; line-height: 0;
+    transition: border-color .12s ease, background .12s ease, opacity .12s ease;
+  }
+  .frame-opt img { width: 100%; height: auto; display: block; }
+  .frame-opt:hover:not(:disabled) { border-color: #6a6a76; background: #17171b; }
+  .frame-opt:disabled { opacity: .3; cursor: not-allowed; }
+  .frame-opt .cap {
+    display: block; margin-top: 6px; line-height: 1;
+    font: 500 9px/1 var(--mono); letter-spacing: .08em; color: var(--muted); text-align: center;
+  }
+  .frame-empty { font: 500 11px/1.5 var(--mono); color: #4e4e57; }
 
   /* strip editor */
   .strip-edit {
@@ -576,8 +592,6 @@
     </div>
   </section>
 
-  <img id="frame-img" src="frame.png" alt="" hidden>
-  <img id="strip-img" src="photostrip.png" alt="" hidden>
 
   <section class="settings" id="settings">
     <div class="group">
@@ -610,10 +624,14 @@
       </div>
     </div>
 
-    <div class="group" id="frame-group">
-      <span class="label">digicam</span>
+    <div class="group">
+      <span class="label">camera</span>
       <div class="chips-row">
-        <button class="toggle" id="framed">digicam frame</button>
+        <button class="toggle on" id="mirror">mirror</button>
+        <button class="toggle on" id="screenflash">screen flash</button>
+        <button class="toggle" id="framed">frame as you shoot</button>
+      </div>
+      <div class="chips-row">
         <div class="seg" role="group" aria-label="Digicam orientation">
           <button class="on" id="fr-vert">vertical</button>
           <button id="fr-horiz">horizontal</button>
@@ -621,23 +639,31 @@
       </div>
     </div>
 
-    <div class="group">
-      <span class="label">camera</span>
-      <div class="chips-row">
-        <button class="toggle on" id="mirror">mirror</button>
-        <button class="toggle on" id="screenflash">screen flash</button>
-      </div>
-    </div>
-
     <div class="group" id="shots-group" hidden>
-      <span class="label">this session</span>
-      <div class="chips-row">
-        <button class="act" id="strip-mode">make photostrip</button>
-        <button class="act primary" id="strip-go" hidden disabled>pick 3</button>
-        <button class="act" id="strip-cancel" hidden>cancel</button>
+      <div class="editor-head">
+        <span class="label">gallery</span>
+        <span class="label" id="sel-count"></span>
+        <span style="flex:1 1 auto"></span>
+        <button class="act" id="cmp-open" disabled>compare</button>
+        <button class="act" id="sel-clear" disabled>deselect</button>
       </div>
       <div class="shots" id="shots"></div>
-      <p class="hint" id="strip-hint" hidden>tap three shots in the order you want them, top to bottom.</p>
+      <p class="hint" id="sel-hint">tap a photo to select it. tap three, in order, for a strip.</p>
+    </div>
+
+    <div class="group frame-group" data-fam="digicam" hidden>
+      <span class="label">digicam frames</span>
+      <div class="frame-opts"></div>
+    </div>
+
+    <div class="group frame-group" data-fam="polaroid" hidden>
+      <span class="label">polaroid frames</span>
+      <div class="frame-opts"></div>
+    </div>
+
+    <div class="group frame-group" data-fam="strip" hidden>
+      <span class="label">photostrips</span>
+      <div class="frame-opts"></div>
     </div>
 
     <input type="file" id="file" accept="image/*" hidden>
@@ -656,8 +682,6 @@
 <div class="compare" id="compare">
   <div class="compare-head">
     <button class="toggle" id="stack-btn">compare</button>
-    <button class="act" id="cmp-frame">add frame</button>
-    <button class="act" id="cmp-strip">photostrip</button>
     <button class="act primary" id="download">download</button>
     <button class="act" id="retake">back</button>
   </div>
@@ -700,13 +724,46 @@
   let fitMode = false;            // true = letterbox the frame instead of cropping it
   let framed = false;             // composite into the digicam frame at capture
 
-  // Window position measured from the artwork, as fractions so it survives any
-  // output resolution. Frame art is 474x842 (9:16); the window is 3:4.
-  const WIN = { x0: 0.3418, x1: 0.7658, y0: 0.4204, y1: 0.7399 };
-  // Cap the LONG side, not the width — otherwise the rotated frame would come
-  // out smaller than the upright one and its window would lose resolution.
-  const FRAME_OUT_LONG = 1920;    // frame art upscales ~2.3x; beyond this it softens
-  let frameHoriz = false;         // rotate the digicam 90 degrees
+  // Every frame lives here. Geometry is stored as fractions of its own artwork,
+  // so it survives any output size — and adding one of your own is a data edit,
+  // not another code path. `win` is a single window; `slots` is a list of them.
+  // Cap the LONG side, not the width: a rotated frame capped on width would come
+  // out smaller than the upright one and lose window resolution.
+  const FRAMES = {
+    digicam: [
+      { id: 'dg1', src: 'frame.png', long: 1920,
+        win: { x0: 0.3418, x1: 0.7658, y0: 0.4204, y1: 0.7399 } }
+    ],
+    polaroid: [],
+    strip: [
+      { id: 'st1', src: 'photostrip.png', long: 2048, slots: [
+          { cx: 0.2457, cy: 0.2887, w: 0.2247, h: 0.1209, deg: -6.88 },
+          { cx: 0.2623, cy: 0.4272, w: 0.2151, h: 0.1212, deg: -7.00 },
+          { cx: 0.2930, cy: 0.5649, w: 0.2244, h: 0.1219, deg: -7.25 }
+        ] }
+    ]
+  };
+  const artCache = {};                     // id -> HTMLImageElement
+  const artFailed = {};                    // id -> true when the file is missing
+
+  // Preload every registered frame. A missing file marks that frame unavailable
+  // rather than breaking the section it belongs to.
+  function loadFrameArt() {
+    for (const fam of Object.keys(FRAMES)) {
+      for (const def of FRAMES[fam]) {
+        const im = new Image();
+        im.onerror = () => { artFailed[def.id] = true; renderFramePickers(); };
+        im.onload = () => renderFramePickers();
+        im.src = def.src;
+        artCache[def.id] = im;
+      }
+    }
+  }
+  const artReady = def => {
+    const a = artCache[def.id];
+    return !!(a && a.complete && a.naturalWidth && !artFailed[def.id]);
+  };
+  let frameHoriz = false;                  // rotate a single-window frame 90 degrees
   const gt = { x: 0, y: 0, scale: 1, flip: false };
 
   const MIN_SCALE = 0.2, MAX_SCALE = 5;
@@ -744,6 +801,11 @@
 
   function updateVF() {
     $('counter').textContent = 'img_' + String(shotSeq + 1).padStart(4, '0');
+    // Nothing pops up after a shot any more, so the scroll cue reports the count.
+    const hint = document.querySelector('.scroll-hint');
+    if (hint) hint.textContent = shots.length
+      ? `gallery · ${shots.length} ${shots.length === 1 ? 'shot' : 'shots'} \u2193`
+      : 'settings \u2193';
     // The self-timer is the one time a compact camera shows a blinking record dot.
     $('rec').classList.toggle('on', delay > 0);
   }
@@ -964,8 +1026,9 @@
   // Composites any drawable — the live video, or a photo already taken — into
   // the digicam window. Split out from capture so the frame can also be applied
   // after the fact, from the compare view.
-  function composeFrame(src, sw, sh, mirrored, inset) {
-    const art = $('frame-img');
+  function composeFrame(src, sw, sh, mirrored, inset, def) {
+    const art = artCache[def.id];
+    const WIN = def.win, FRAME_OUT_LONG = def.long;
     const aw = art.naturalWidth, ah = art.naturalHeight;
     const scale = FRAME_OUT_LONG / Math.max(aw, ah);
     const upW = Math.round(aw * scale), upH = Math.round(ah * scale);   // upright size
@@ -1023,46 +1086,41 @@
   }
 
   function grabFramed(sw, sh) {
-    const art = $('frame-img');
+    const def = FRAMES.digicam[0];
+    const art = def && artCache[def.id];
     // If the artwork has not decoded yet, naturalWidth is 0 and every derived
     // dimension becomes NaN. Fall back to a normal shot rather than a dead canvas.
-    if (!art.complete || !art.naturalWidth) return grabPlain(sw, sh);
-    finishGrab(composeFrame(video, sw, sh, video.classList.contains('mirrored')), 'png');
+    if (!art || !art.complete || !art.naturalWidth) return grabPlain(sw, sh);
+    finishGrab(composeFrame(video, sw, sh, video.classList.contains('mirrored'), 0, def),
+               'png', 'framed');
   }
 
-  // Apply the frame to a shot already on the card. It is already mirrored the
-  // way it was captured, so it must not be mirrored again.
-  function frameExisting(url) {
-    const art = $('frame-img');
-    if (!art.complete || !art.naturalWidth) return;
+  // Apply a frame to a shot already on the card. It is already mirrored the way
+  // it was captured, so it must not be mirrored again.
+  function frameExisting(url, def) {
+    const art = artCache[def.id];
+    if (!art || !art.complete || !art.naturalWidth) return;
     const im = new Image();
     im.onload = () => finishGrab(
-      composeFrame(im, im.naturalWidth, im.naturalHeight, false, 0.015), 'png');
+      composeFrame(im, im.naturalWidth, im.naturalHeight, false, 0.015, def), 'png', 'framed');
     im.src = url;
   }
 
-  // Jump from a shot straight into strip selection with that shot already
-  // chosen, so "photostrip" from the compare view has somewhere to land.
-  function stripFrom(url) {
-    closeCompare();
-    setSelecting(true);
-    const i = shots.findIndex(s => s.url === url);
-    if (i >= 0) togglePick(i);
-    $('settings').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
 
-  function finishGrab(c, ext) {
+  function finishGrab(c, ext, kind) {
     const png = ext === 'png';
     c.toBlob(blob => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
-      const name = 'img_' + String(++shotSeq).padStart(4, '0') + '.' + (png ? 'png' : 'jpg');
-      shots.push({ url, blob, ext: png ? 'png' : 'jpg', name });
+      const k = kind || 'photo';
+      const stem = k === 'photo' ? 'img_' : k === 'strip' ? 'strip' : 'frm_';
+      const name = stem + String(++shotSeq).padStart(4, '0') + '.' + (png ? 'png' : 'jpg');
+      shots.push({ url, blob, ext: png ? 'png' : 'jpg', name, kind: k });
       shotURL = url;
       justShot = true;
       renderShots();
+      renderFramePickers();
       updateVF();
-      openCompare(url);
       justShot = false;
     }, png ? 'image/png' : 'image/jpeg', 0.92);
   }
@@ -1082,13 +1140,10 @@
       cap.textContent = s.name || '';
       const badge = document.createElement('span');
       badge.className = 'badge';
-      const at = stripSel.indexOf(i);
+      const at = sel.indexOf(i);
       if (at >= 0) { cell.classList.add('picked'); badge.textContent = at + 1; }
       cell.append(im, badge, cap);
-      cell.addEventListener('click', () => {
-        if (selecting) togglePick(i);
-        else { shotURL = s.url; openCompare(s.url); }
-      });
+      cell.addEventListener('click', () => toggleSel(i));
       box.appendChild(cell);
     });
     $('shots-group').hidden = shots.length === 0;
@@ -1100,49 +1155,78 @@
   // they hold at any output size. The HOLE is a pixel mask baked into the PNG;
   // these quads only decide each photo's framing and tilt, so small errors here
   // are invisible — the artwork masks the edges either way.
-  const STRIP_SLOTS = [
-    { cx: 0.2457, cy: 0.2887, w: 0.2247, h: 0.1209, deg: -6.88 },
-    { cx: 0.2623, cy: 0.4272, w: 0.2151, h: 0.1212, deg: -7.00 },
-    { cx: 0.2930, cy: 0.5649, w: 0.2244, h: 0.1219, deg: -7.25 }
-  ];
-  const STRIP_OUT_LONG = 2048;
+  let stripDef = null;            // which strip design is being composed
+  const STRIP_SLOTS = () => (stripDef ? stripDef.slots : []);
 
-  let selecting = false;
-  let stripSel = [];        // indices into shots, in tap order
-  let stripView = [];       // { img, offX, offY, scale } per slot
-  let stripW = 0, stripH = 0;
+  let sel = [];                   // shot indices, in tap order
 
-  function setSelecting(on) {
-    selecting = on;
-    stripSel = [];
-    $('shots').classList.toggle('selecting', on);
-    $('strip-mode').hidden = on;
-    $('strip-go').hidden = !on;
-    $('strip-cancel').hidden = !on;
-    $('strip-hint').hidden = !on;
-    updateStripBtn();
-    renderShots();
+  const selShots = () => sel.map(i => shots[i]).filter(Boolean);
+  // Only an untouched photo can be framed — that is what keeps a frame from
+  // being applied twice, or wrapped around a strip.
+  const selFramable = n => sel.length === n && selShots().every(s => s.kind === 'photo');
+
+  function clearSel() { sel = []; renderShots(); renderFramePickers(); }
+
+  function toggleSel(i) {
+    const at = sel.indexOf(i);
+    if (at >= 0) sel.splice(at, 1); else sel.push(i);
+    renderShots(); renderFramePickers();
   }
 
-  function updateStripBtn() {
-    const n = stripSel.length;
-    $('strip-go').disabled = n !== 3;
-    $('strip-go').textContent = n === 3 ? 'make strip' : `pick 3 (${n}/3)`;
-  }
+  // Builds the picker for each family and sets what is reachable right now.
+  function renderFramePickers() {
+    document.querySelectorAll('.frame-group').forEach(group => {
+      const fam = group.dataset.fam;
+      const defs = FRAMES[fam] || [];
+      group.hidden = defs.length === 0 || shots.length === 0;
+      const box = group.querySelector('.frame-opts');
+      const need = fam === 'strip' ? 3 : 1;
+      const enabled = selFramable(need);
+      box.textContent = '';
+      defs.forEach((def, n) => {
+        const b = document.createElement('button');
+        b.className = 'frame-opt';
+        b.disabled = !enabled || !artReady(def);
+        b.title = artReady(def) ? '' : def.src + ' not found';
+        const im = document.createElement('img');
+        im.src = def.src; im.alt = '';
+        const cap = document.createElement('span');
+        cap.className = 'cap';
+        cap.textContent = String(n + 1).padStart(2, '0');
+        b.append(im, cap);
+        b.addEventListener('click', () => {
+          if (b.disabled) return;
+          if (fam === 'strip') openStripEditor(def);
+          else frameExisting(shots[sel[0]].url, def);
+        });
+        box.appendChild(b);
+      });
+      if (!defs.length) {
+        const e = document.createElement('span');
+        e.className = 'frame-empty';
+        e.textContent = 'none yet';
+        box.appendChild(e);
+      }
+    });
 
-  function togglePick(i) {
-    const at = stripSel.indexOf(i);
-    if (at >= 0) stripSel.splice(at, 1);
-    else if (stripSel.length < 3) stripSel.push(i);
-    updateStripBtn();
-    renderShots();
+    const n = sel.length;
+    $('sel-count').textContent = n ? `${n} selected` : '';
+    $('cmp-open').disabled = n !== 1;
+    $('sel-clear').disabled = n === 0;
+    $('sel-hint').textContent = n === 0
+      ? 'tap a photo to select it. tap three, in order, for a strip.'
+      : n === 1
+        ? (selShots()[0].kind === 'photo'
+            ? 'pick a digicam or polaroid frame below.'
+            : 'already framed — frames can only be applied once.')
+        : n === 3 ? 'pick a photostrip below.' : `${n} selected — 1 for a frame, 3 for a strip.`;
   }
 
   // Photos sit BEHIND the artwork and show through the punched slots.
   function drawStrip() {
     const c = $('strip-canvas'), ctx = c.getContext('2d');
     ctx.clearRect(0, 0, stripW, stripH);
-    STRIP_SLOTS.forEach((q, i) => {
+    STRIP_SLOTS().forEach((q, i) => {
       const v = stripView[i];
       if (!v || !v.img || !v.img.naturalWidth) return;
       const bleed = stripW * 0.006;               // tuck under the paper edge
@@ -1160,20 +1244,21 @@
       ctx.drawImage(im, -dw / 2 + v.offX * mx, -dh / 2 + v.offY * my, dw, dh);
       ctx.restore();
     });
-    ctx.drawImage($('strip-img'), 0, 0, stripW, stripH);
+    ctx.drawImage(artCache[stripDef.id], 0, 0, stripW, stripH);
   }
 
-  function openStripEditor() {
-    const art = $('strip-img');
-    if (!art.complete || !art.naturalWidth) return;
-    const sc = STRIP_OUT_LONG / Math.max(art.naturalWidth, art.naturalHeight);
+  function openStripEditor(def) {
+    stripDef = def;
+    const art = artCache[def.id];
+    if (!artReady(def)) return;
+    const sc = def.long / Math.max(art.naturalWidth, art.naturalHeight);
     stripW = Math.round(art.naturalWidth * sc);
     stripH = Math.round(art.naturalHeight * sc);
     const c = $('strip-canvas');
     c.width = stripW; c.height = stripH;
 
-    stripView = stripSel.map(() => ({ img: null, offX: 0, offY: 0, scale: 1 }));
-    stripSel.forEach((idx, i) => {
+    stripView = def.slots.map(() => ({ img: null, offX: 0, offY: 0, scale: 1 }));
+    sel.forEach((idx, i) => {
       const im = new Image();
       im.onload = drawStrip;
       im.src = shots[idx].url;
@@ -1185,8 +1270,9 @@
 
   // canvas coords -> which slot, if any
   function slotAt(px, py) {
-    for (let i = 0; i < STRIP_SLOTS.length; i++) {
-      const q = STRIP_SLOTS[i];
+    const SL = STRIP_SLOTS();
+    for (let i = 0; i < SL.length; i++) {
+      const q = SL[i];
       const t = q.deg * Math.PI / 180;
       const dx = px - q.cx * stripW, dy = py - q.cy * stripH;
       const lx =  dx * Math.cos(t) + dy * Math.sin(t);
@@ -1200,13 +1286,13 @@
     $('strip-canvas').toBlob(blob => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
-      shots.push({ url, blob, ext: 'png',
-                   name: 'strip' + String(++shotSeq).padStart(3, '0') + '.png' });
+      shots.push({ url, blob, ext: 'png', kind: 'strip',
+                   name: 'strip' + String(++shotSeq).padStart(4, '0') + '.png' });
       shotURL = url;
       $('strip-edit').classList.remove('on');
-      setSelecting(false);
+      clearSel();
       renderShots();
-      openCompare(url);
+      renderFramePickers();
     }, 'image/png');
   }
 
@@ -1312,11 +1398,7 @@
   toggle($('gridbtn'), () => $('grid').classList.toggle('on'));
   $('screenflash').addEventListener('click', () => $('screenflash').classList.toggle('on'));
 
-  $('frame-img').addEventListener('error', () => {
-    $('framed').disabled = true;
-    $('cmp-frame').disabled = true;
-    framed = false;
-  });
+  if (!FRAMES.digicam.length) $('framed').disabled = true;
   $('framed').addEventListener('click', () => {
     if ($('framed').disabled) return;
     framed = !framed;
@@ -1369,13 +1451,12 @@
     applyFrame($('aspect-row').querySelector(want));
   }
 
-  $('strip-mode').addEventListener('click', () => setSelecting(true));
-  $('strip-cancel').addEventListener('click', () => setSelecting(false));
-  $('strip-go').addEventListener('click', () => { if (stripSel.length === 3) openStripEditor(); });
+  $('sel-clear').addEventListener('click', clearSel);
+  $('cmp-open').addEventListener('click', () => {
+    if (sel.length === 1) { shotURL = shots[sel[0]].url; openCompare(shotURL); }
+  });
   $('strip-close').addEventListener('click', () => $('strip-edit').classList.remove('on'));
   $('strip-save').addEventListener('click', saveStrip);
-  $('cmp-frame').addEventListener('click', () => { if (shotURL) frameExisting(shotURL); });
-  $('cmp-strip').addEventListener('click', () => { if (shotURL) stripFrom(shotURL); });
 
   // drag a photo within its slot
   (() => {
@@ -1396,7 +1477,7 @@
     c.addEventListener('pointermove', e => {
       if (slot < 0) return;
       const [x, y] = toCanvas(e);
-      const q = STRIP_SLOTS[slot], v = stripView[slot];
+      const q = STRIP_SLOTS()[slot], v = stripView[slot];
       const t = q.deg * Math.PI / 180;
       const dx = x - lastX, dy = y - lastY;
       // rotate the drag into the slot's own frame, then express it as a
@@ -1487,6 +1568,8 @@
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openApp(); }
   });
 
+  loadFrameArt();          // without this the registry never resolves and every
+  renderFramePickers();    // frame option stays disabled forever
   pickDefaultFrame();
   updateVF();
   tickStamp();
