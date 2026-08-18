@@ -514,6 +514,26 @@
   }
   .frame-empty { font: 500 11px/1.5 var(--mono); color: #4e4e57; }
 
+  /* Hover preview: your actual selected photos in the frame, before you commit. */
+  .fpv {
+    position: fixed; z-index: 45; pointer-events: none;
+    padding: 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.6);
+    opacity: 0; transform: translateY(4px);
+    transition: opacity .12s ease, transform .12s ease;
+  }
+  .fpv[hidden] { display: none; }
+  .fpv.on { opacity: 1; transform: none; }
+  .fpv canvas {
+    display: block; width: auto; height: auto;
+    max-width: 230px; max-height: min(300px, 44vh);
+  }
+  .fpv .cap {
+    display: block; margin-top: 6px; line-height: 1;
+    font: 500 9px/1 var(--mono); letter-spacing: .08em; color: var(--muted); text-align: center;
+  }
+
   /* strip editor */
   .strip-edit {
     position: fixed; inset: 0; z-index: 40; display: none;
@@ -718,6 +738,8 @@
   </div>
   <div class="strip-holder"><canvas id="strip-canvas"></canvas></div>
 </div>
+
+<div class="fpv" id="fpv" hidden><div class="fpv-art"></div><span class="cap"></span></div>
 
 <div class="compare" id="compare">
   <div class="compare-head">
@@ -1249,9 +1271,19 @@
         b.append(im, cap);
         b.addEventListener('click', () => {
           if (b.disabled) return;
+          hidePreview();
           if (fam === 'strip') openStripEditor(def);
           else frameExisting(shots[sel[0]].url, def);
         });
+        if (!b.disabled) {
+          // Touch has no hover; a tap would only flash the panel before committing.
+          b.addEventListener('pointerenter', e => {
+            if (e.pointerType !== 'touch') showPreview(b, fam, def);
+          });
+          b.addEventListener('pointerleave', hidePreview);
+          b.addEventListener('focus', () => showPreview(b, fam, def));
+          b.addEventListener('blur', hidePreview);
+        }
         box.appendChild(b);
       });
       if (!defs.length) {
@@ -1276,11 +1308,12 @@
   }
 
   // Photos sit BEHIND the artwork and show through the punched slots.
-  function drawStrip() {
-    const c = $('strip-canvas'), ctx = c.getContext('2d');
-    ctx.clearRect(0, 0, stripW, stripH);
-    STRIP_SLOTS().forEach((q, i) => {
-      const v = stripView[i];
+  // Pure: takes its geometry and its per-slot views as arguments, so the editor
+  // and the hover preview render through the same code at different sizes.
+  function paintStrip(ctx, def, w, h, views) {
+    const stripW = w, stripH = h;
+    def.slots.forEach((q, i) => {
+      const v = views[i];
       if (!v || !v.img || !v.img.naturalWidth) return;
       const bleed = stripW * 0.006;               // tuck under the paper edge
       const w = q.w * stripW + bleed, h = q.h * stripH + bleed;
@@ -1297,8 +1330,100 @@
       ctx.drawImage(im, -dw / 2 + v.offX * mx, -dh / 2 + v.offY * my, dw, dh);
       ctx.restore();
     });
-    ctx.drawImage(artCache[stripDef.id], 0, 0, stripW, stripH);
+    ctx.drawImage(artCache[def.id], 0, 0, stripW, stripH);
   }
+
+  function drawStrip() {
+    const ctx = $('strip-canvas').getContext('2d');
+    ctx.clearRect(0, 0, stripW, stripH);
+    if (stripDef) paintStrip(ctx, stripDef, stripW, stripH, stripView);
+  }
+
+  // ---------- hover preview ----------
+
+  const PREVIEW_LONG = 460;                // enough to read, cheap to paint
+  const shotImg = {};                      // url -> decoded HTMLImageElement
+
+  function decoded(url, cb) {
+    let im = shotImg[url];
+    if (im) {
+      if (im.complete && im.naturalWidth) cb(im);
+      else im.addEventListener('load', () => cb(im), { once: true });
+      return;
+    }
+    im = shotImg[url] = new Image();
+    im.addEventListener('load', () => cb(im), { once: true });
+    im.src = url;
+  }
+
+  // Renders the selection into the frame at preview size. Same compositors the
+  // real output uses, so what you see is what you get — only smaller.
+  function buildPreview(fam, def, done) {
+    const urls = selShots().map(s => s.url);
+    if (!urls.length || !artReady(def)) return;
+    const imgs = [];
+    let left = urls.length;
+    urls.forEach((u, i) => decoded(u, im => { imgs[i] = im; if (!--left) paint(); }));
+
+    function paint() {
+      if (fam === 'strip') {
+        const art = artCache[def.id];
+        const sc = PREVIEW_LONG / Math.max(art.naturalWidth, art.naturalHeight);
+        const w = Math.round(art.naturalWidth * sc), h = Math.round(art.naturalHeight * sc);
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        // Default view per slot: centred, unzoomed — exactly how the editor opens.
+        paintStrip(c.getContext('2d'), def, w, h,
+                   imgs.map(img => ({ img, offX: 0, offY: 0, scale: 1 })));
+        done(c);
+      } else {
+        const im = imgs[0];
+        done(composeFrame(im, im.naturalWidth, im.naturalHeight, false, 0.015,
+                          Object.assign({}, def, { long: PREVIEW_LONG })));
+      }
+    }
+  }
+
+  let pvToken = 0, pvTimer = 0;
+
+  function hidePreview() {
+    clearTimeout(pvTimer);
+    pvToken++;                             // any render still in flight is stale
+    $('fpv').classList.remove('on');
+    pvTimer = setTimeout(() => { $('fpv').hidden = true; }, 140);
+  }
+
+  function showPreview(btn, fam, def) {
+    clearTimeout(pvTimer);
+    const mine = ++pvToken;
+    buildPreview(fam, def, c => {
+      if (mine !== pvToken) return;        // pointer moved on while we painted
+      const p = $('fpv');
+      const art = p.querySelector('.fpv-art');
+      art.textContent = '';
+      art.appendChild(c);
+      p.querySelector('.cap').textContent = 'preview \u00b7 ' + def.id;
+      p.hidden = false;
+      placePreview(p, btn);
+      requestAnimationFrame(() => p.classList.add('on'));
+    });
+  }
+
+  // Above the option when it fits, below when it does not, clamped to the viewport.
+  function placePreview(p, btn) {
+    p.style.left = '0px'; p.style.top = '0px';        // measure unclamped
+    const r = btn.getBoundingClientRect(), b = p.getBoundingClientRect();
+    const M = 8;
+    const x = Math.max(M, Math.min(r.left + r.width / 2 - b.width / 2,
+                                   innerWidth - b.width - M));
+    let y = r.top - b.height - M;
+    if (y < M) y = Math.min(r.bottom + M, innerHeight - b.height - M);
+    p.style.left = Math.round(x) + 'px';
+    p.style.top = Math.round(Math.max(M, y)) + 'px';
+  }
+
+  // The panel is fixed, so scrolling would leave it stranded away from its option.
+  addEventListener('scroll', () => { if (!$('fpv').hidden) hidePreview(); }, true);
 
   function openStripEditor(def) {
     stripDef = def;
