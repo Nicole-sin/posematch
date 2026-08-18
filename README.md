@@ -74,7 +74,7 @@ On desktop the same page becomes a two-column layout with a sidebar; extra contr
 ## Frames
 
 Nine of them: three digicams (a pink Canon, a silver Canon with a lucky-star charm, a pink Sony
-with Hello Kitty), three polaroids (red bows on dusty pink, blue gingham, lilac gingham) and three
+with Hello Kitty), three polaroids (strawberries on cream, blue gingham, lilac gingham) and three
 photostrips.
 
 They all sit on **one rail** in the gallery, grouped by family and set at a single thumbnail
@@ -97,6 +97,11 @@ the hole's own shape decides the output and the frame-shape chips do not apply.
 The frame turns itself. All three cameras have landscape screens, so a landscape photo drops
 straight in, and a portrait photo turns the camera 90 degrees — which is what you physically do
 with a digicam to shoot portrait. A square photo leaves the frame upright.
+
+Which way it turns is per frame. Clockwise suits a digicam, putting its controls at the bottom;
+the polaroids carry `turn: 'ccw'` so their wide border lands on the right rather than the left. The
+two directions map the window differently — `(x, y) -> (1 - y, x)` clockwise, `(x, y) -> (y, 1 - x)`
+counter-clockwise — so this is not just a sign flip on the artwork.
 
 There is nothing to set. `composeFrame` compares the frame's own window to the photo:
 
@@ -123,8 +128,9 @@ Two frames needed opposite handling, and connectivity is what reconciles them:
 
 - The silver Canon's screen is the same 247 grey as its background, so no brightness test can find
   it. Being unreachable from the edge is what identifies it.
-- Two polaroids arrived with their windows already punched; the third was still a solid white
-  card. Same test either way: the largest enclosed blob, transparent or white.
+- Two polaroids arrived with their windows already punched; the strawberry one was a JPEG whose
+  window is the same pure white as its background. Same test either way: the largest enclosed
+  blob, transparent or white.
 - The pink Sony's bow is `(123,112,115)` against a `128` grey. A tolerance loose enough to clear
   the anti-aliased rim ate the bow, Hello Kitty and the charm — so the core fill is tight and a
   two-pixel feather under a looser rule cleans the rim afterwards.

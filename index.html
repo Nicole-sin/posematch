@@ -843,11 +843,13 @@
         win: { x0: 0.1481, x1: 0.5914, y0: 0.3113, y1: 0.7868 } }    // landscape window
     ],
     polaroid: [
-      { id: 'po1', src: 'polaroid1.png', long: 1400,
-        win: { x0: 0.0688, x1: 0.9214, y0: 0.0631, y1: 0.7882 } },
-      { id: 'po2', src: 'polaroid2.png', long: 1400,
+      // turn: 'ccw' — a polaroid's wide border reads better on the right when the
+      // frame is laid on its side, and clockwise would put it on the left.
+      { id: 'po1', src: 'polaroid1.png', long: 1400, turn: 'ccw',
+        win: { x0: 0.0869, x1: 0.9106, y0: 0.0589, y1: 0.7868 } },
+      { id: 'po2', src: 'polaroid2.png', long: 1400, turn: 'ccw',
         win: { x0: 0.0855, x1: 0.9079, y0: 0.0849, y1: 0.8072 } },
-      { id: 'po3', src: 'polaroid3.png', long: 1400,
+      { id: 'po3', src: 'polaroid3.png', long: 1400, turn: 'ccw',
         win: { x0: 0.0825, x1: 0.9150, y0: 0.0812, y1: 0.8073 } }
     ],
     strip: [
@@ -1200,13 +1202,18 @@
     c.width = outW; c.height = outH;
     const ctx = c.getContext('2d');
 
-    // Rotating 90deg clockwise swaps the window's axes: what was a vertical
-    // 3:4 hole becomes a horizontal 4:3 one, and the x fraction is measured
-    // from the far side.
+    // Turning the frame swaps the window's axes: a vertical hole becomes a
+    // horizontal one. Which way it turns decides which side each edge lands on,
+    // so the two directions need different mappings.
+    //   clockwise:        (x, y) -> (1 - y, x)
+    //   counter-clockwise:(x, y) -> (y, 1 - x)
+    const ccw = def.turn === 'ccw';
     let wx, wy, ww, wh;
     if (frameHoriz) {
-      wx = (1 - WIN.y1) * outW;  ww = (WIN.y1 - WIN.y0) * outW;
-      wy = WIN.x0 * outH;        wh = (WIN.x1 - WIN.x0) * outH;
+      ww = (WIN.y1 - WIN.y0) * outW;
+      wh = (WIN.x1 - WIN.x0) * outH;
+      wx = (ccw ? WIN.y0 : 1 - WIN.y1) * outW;
+      wy = (ccw ? 1 - WIN.x1 : WIN.x0) * outH;
     } else {
       wx = WIN.x0 * outW;        ww = (WIN.x1 - WIN.x0) * outW;
       wy = WIN.y0 * outH;        wh = (WIN.y1 - WIN.y0) * outH;
@@ -1236,8 +1243,8 @@
     // artwork on top; background stays transparent
     if (frameHoriz) {
       ctx.save();
-      ctx.translate(outW, 0);
-      ctx.rotate(Math.PI / 2);
+      if (ccw) { ctx.translate(0, outH); ctx.rotate(-Math.PI / 2); }
+      else     { ctx.translate(outW, 0); ctx.rotate(Math.PI / 2); }
       ctx.drawImage(art, 0, 0, outH, outW);   // local axes are swapped under the rotation
       ctx.restore();
     } else {
