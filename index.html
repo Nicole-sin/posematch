@@ -815,7 +815,11 @@
   const FRAMES = {
     digicam: [
       { id: 'dg1', src: 'frame.png', long: 1920,
-        win: { x0: 0.3418, x1: 0.7658, y0: 0.4204, y1: 0.7399 } }
+        win: { x0: 0.3418, x1: 0.7658, y0: 0.4204, y1: 0.7399 } },   // portrait window
+      { id: 'dg2', src: 'digicam2.png', long: 1920,
+        win: { x0: 0.1215, x1: 0.5678, y0: 0.3473, y1: 0.8683 } },   // landscape window
+      { id: 'dg3', src: 'digicam3.png', long: 1920,
+        win: { x0: 0.1481, x1: 0.5914, y0: 0.3113, y1: 0.7868 } }    // landscape window
     ],
     polaroid: [],
     strip: [
@@ -1144,12 +1148,16 @@
   function composeFrame(src, sw, sh, mirrored, inset, def) {
     const art = artCache[def.id];
     const WIN = def.win, FRAME_OUT_LONG = def.long;
-    // A landscape photo turns the frame on its side. The shape of what you shot
-    // is the only signal needed, so there is nothing to set.
-    const frameHoriz = sw > sh;
     const aw = art.naturalWidth, ah = art.naturalHeight;
     const scale = FRAME_OUT_LONG / Math.max(aw, ah);
     const upW = Math.round(aw * scale), upH = Math.round(ah * scale);   // upright size
+
+    // Turn the frame on its side when its screen runs the other way from the
+    // photo. dg1's screen is portrait, dg2 and dg3 are landscape, so "rotate for
+    // a landscape photo" is not enough — it has to compare the two. A square
+    // photo fits either way, so leave it upright.
+    const winHoriz = (WIN.x1 - WIN.x0) * upW > (WIN.y1 - WIN.y0) * upH;
+    const frameHoriz = sw !== sh && (sw > sh) !== winHoriz;
     const outW = frameHoriz ? upH : upW;
     const outH = frameHoriz ? upW : upH;
 

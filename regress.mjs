@@ -25,7 +25,7 @@ const mkCtx = owner => new Proxy({}, { get: (_, k) => {
 function mkEl(tag = 'div', id = '') {
   const el = {
     tagName: tag.toUpperCase(), id, nodeType: 1, children: [], style: {}, dataset: {},
-    hidden: false, disabled: false, textContent: '', src: '', alt: '', title: '',
+    hidden: false, disabled: false, _text: '', src: '', alt: '', title: '',
     width: 0, height: 0, naturalWidth: 800, naturalHeight: 1200, complete: true,
     value: '', checked: false, _cls: new Set(), _ev: {},
     classList: {
@@ -43,6 +43,8 @@ function mkEl(tag = 'div', id = '') {
     closest: () => null, contains: () => false, scrollIntoView(){},
     querySelector: s => reg[s.replace(/^[.#]/, '')] || mkEl(),
     querySelectorAll: () => [],
+    get textContent(){ return el._text; },
+    set textContent(v){ el._text = v; if (v === '') el.children = []; },  // as the DOM does
     get firstChild(){ return el.children[0] || null; },
     set innerHTML(_) { el.children = []; }, get innerHTML(){ return ''; },
   };
@@ -115,7 +117,17 @@ globalThis.__seen = seen;
 const ctx = vm.createContext(guard);
 
 
+const ART_DIMS = { dg1: [474, 842], dg2: [782, 501], dg3: [952, 652], st1: [1640, 2048] };
 const DRIVER = `
+const ART_DIMS = ${JSON.stringify(ART_DIMS)};
+const WIN_ORIENT = {};
+for (const fam of Object.keys(FRAMES)) for (const d of FRAMES[fam]) {
+  const a = artCache[d.id], dims = ART_DIMS[d.id];
+  if (dims) { a.naturalWidth = dims[0]; a.naturalHeight = dims[1]; }
+  if (d.win) WIN_ORIENT[d.id] =
+    (d.win.x1 - d.win.x0) * a.naturalWidth > (d.win.y1 - d.win.y0) * a.naturalHeight
+      ? 'landscape' : 'portrait';
+}
 ;(async () => {
   const out = globalThis.__out = { steps: [] };
   const step = (k, v) => out.steps.push([k, v]);
@@ -176,16 +188,19 @@ const DRIVER = `
 
     // ---- the frame follows the photo's shape, with nothing to set ----
     step('--- frame orientation ---', '');
-    const dg = FRAMES.digicam[0];
-    const dim = c => c.width + 'x' + c.height + (c.width > c.height ? ' (horizontal)' : ' (vertical)');
-    step('portrait  1200x1600 ->', dim(composeFrame({}, 1200, 1600, false, 0, dg)));
-    step('landscape 1600x1200 ->', dim(composeFrame({}, 1600, 1200, false, 0, dg)));
-    step('square    1200x1200 ->', dim(composeFrame({}, 1200, 1200, false, 0, dg)));
+    const dim = c => (c.width > c.height ? 'horizontal' : c.width < c.height ? 'vertical' : 'square')
+                     + ' ' + c.width + 'x' + c.height;
+    for (const d of FRAMES.digicam) {
+      step(d.id + ' (' + (WIN_ORIENT[d.id] || '?') + ' screen)', '');
+      step('  portrait  photo ->', dim(composeFrame({}, 1200, 1600, false, 0, d)));
+      step('  landscape photo ->', dim(composeFrame({}, 1600, 1200, false, 0, d)));
+      step('  square    photo ->', dim(composeFrame({}, 1200, 1200, false, 0, d)));
+    }
 
     // ---- the preview lands over the photo, not in a floating chip ----
     step('--- hover preview ---', '');
     sel = [0]; renderFramePickers();
-    showPreview('digicam', dg);
+    showPreview('digicam', FRAMES.digicam[0]);
     await sleep(40);
     step('preview visible', !$('lp-pv').hidden);
     step('  painted into the hero pane', $('lp-pv').children.length + ' canvas');
@@ -193,6 +208,15 @@ const DRIVER = `
     step('  preview size', pc ? dim(pc) : 'NONE');
     hidePreview(); await sleep(200);
     step('preview hidden on leave', $('lp-pv').hidden);
+
+    // ---- every registered frame shows up as an option ----
+    step('--- pickers ---', '');
+    renderFramePickers();
+    for (const g of document.querySelectorAll('.frame-group')) {
+      const opts = g._box.children.filter(c => c.tagName === 'BUTTON');
+      step(g.dataset.fam, opts.length + ' option(s), ' +
+           opts.filter(b => !b.disabled).length + ' enabled');
+    }
 
     // ---- framing an existing shot keeps you in the gallery ----
     step('--- framing a shot ---', '');
