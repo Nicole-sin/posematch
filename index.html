@@ -593,7 +593,6 @@
         <button data-ar="0.5625">9:16</button>
         <button data-ar="0.5625" data-fit="1">9:16 fit</button>
       </div>
-      <p class="hint" id="ar-note">Full matches your phone's camera exactly — no crop.</p>
     </div>
 
     <div class="group">
@@ -613,7 +612,6 @@
         <button class="act" id="flip-ghost">flip ghost</button>
         <button class="act" id="clear-ghost">clear</button>
       </div>
-      <p class="hint">Drag the ghost on the camera to move it. Pinch or scroll to resize.</p>
     </div>
 
     <div class="group" id="frame-group">
@@ -625,8 +623,6 @@
           <button id="fr-horiz">horizontal</button>
         </div>
       </div>
-      <p class="hint" id="frame-note">Digicam upright; the window is 3:4, the same shape as a phone
-        front camera. Composited at capture only, so the live preview stays full size.</p>
     </div>
 
     <div class="group">
@@ -635,7 +631,6 @@
         <button class="toggle on" id="mirror">mirror</button>
         <button class="toggle on" id="screenflash">screen flash</button>
       </div>
-      <p class="hint">Phones have no front LED — screen flash lights you with the display instead.</p>
     </div>
 
     <div class="group" id="shots-group" hidden>
@@ -821,7 +816,6 @@
   function readVideoAspect() {
     if (video.videoWidth) videoAspect = video.videoWidth / video.videoHeight;
     layoutStage();
-    updateArNote();
   }
 
   function stopCamera() {
@@ -830,20 +824,6 @@
   }
 
   // Say plainly how much of the camera's view each frame option keeps.
-  function updateArNote() {
-    const src = videoAspect, box = stageAspect();
-    const kept = box < src ? box / src : 1;
-
-    $('ar-note').textContent = fitMode
-      ? 'Keeps the whole camera view and pads with black bars — no zoom.'
-      : !targetAspect
-      ? "Full matches your phone's camera exactly — no crop."
-      : kept >= 0.999
-        ? 'Keeps the full width; trims top and bottom — no zoom.'
-        : `Trims the sides: keeps ${Math.round(kept * 100)}% of the camera's width, `
-          + `so everything looks ${(1 / kept).toFixed(2)}× closer than Full.`;
-
-  }
 
   // ---------- inspo ----------
 
@@ -1306,7 +1286,6 @@
   $('frame-img').addEventListener('error', () => {
     $('framed').disabled = true;
     framed = false;
-    $('frame-note').textContent = 'frame.png could not be loaded.';
   });
   $('framed').addEventListener('click', () => {
     if ($('framed').disabled) return;
@@ -1317,10 +1296,6 @@
     frameHoriz = h;
     $('fr-vert').classList.toggle('on', !h);
     $('fr-horiz').classList.toggle('on', h);
-    $('frame-note').textContent = (h
-      ? 'Digicam turned sideways; the window becomes 4:3, which suits a laptop webcam.'
-      : 'Digicam upright; the window is 3:4, the same shape as a phone front camera.')
-      + ' Composited at capture only, so the live preview stays full size.';
   };
   $('fr-vert').addEventListener('click', () => setFrameOrient(false));
   $('fr-horiz').addEventListener('click', () => setFrameOrient(true));
@@ -1350,7 +1325,6 @@
     video.classList.toggle('fit', fitMode);
     [...$('aspect-row').children].forEach(c => c.classList.toggle('on', c === b));
     layoutStage();
-    requestAnimationFrame(updateArNote);   // after the stage box has resized
   }
 
   $('aspect-row').addEventListener('click', e => applyFrame(e.target.closest('button')));
